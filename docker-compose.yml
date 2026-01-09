@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  psdoom:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: psdoom
+    hostname: psdoom
+    restart: unless-stopped
+
+    # Port mappings
+    ports:
+      # HTML5 web interface (primary access method)
+      - "6080:6080"
+      # VNC direct access (optional, for VNC clients)
+      - "5900:5900"
+
+    # Environment variables
+    environment:
+      - DISPLAY=:0
+      - RESOLUTION=1024x768
+
+    # Resource limits (adjust as needed)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+    # Security options - psdoom needs to see/manage processes
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6080/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+# Optional: Create a dedicated network
+networks:
+  default:
+    name: psdoom-network
+    driver: bridge
