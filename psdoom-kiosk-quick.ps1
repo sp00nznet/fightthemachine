@@ -910,17 +910,41 @@ function New-CloudInitISO {
     if (Test-Path $xorrisoExe) {
         Write-Log "Creating ISO with xorriso..." -Level INFO
         try {
-            # xorriso command to create ISO with cidata volume label
-            $metaFile = Join-Path $CloudInitDir "meta-data"
-            $userFile = Join-Path $CloudInitDir "user-data"
-
-            $output = & $xorrisoExe -as mkisofs -o $isoPath -V "cidata" -J -R $CloudInitDir 2>&1
-            $output | ForEach-Object { Write-Log $_ -Level DEBUG }
-
+            # Remove existing ISO if any
             if (Test-Path $isoPath) {
+                Remove-Item $isoPath -Force
+            }
+
+            # Run xorriso and capture all output
+            $xorrisoArgs = "-as mkisofs -o `"$isoPath`" -V cidata -J -R `"$CloudInitDir`""
+            Write-Log "Running: xorriso $xorrisoArgs" -Level DEBUG
+
+            $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+            $pinfo.FileName = $xorrisoExe
+            $pinfo.Arguments = $xorrisoArgs
+            $pinfo.RedirectStandardOutput = $true
+            $pinfo.RedirectStandardError = $true
+            $pinfo.UseShellExecute = $false
+            $pinfo.CreateNoWindow = $true
+
+            $process = New-Object System.Diagnostics.Process
+            $process.StartInfo = $pinfo
+            $process.Start() | Out-Null
+            $stdout = $process.StandardOutput.ReadToEnd()
+            $stderr = $process.StandardError.ReadToEnd()
+            $process.WaitForExit()
+
+            if ($stdout) { Write-Log "xorriso stdout: $stdout" -Level DEBUG }
+            if ($stderr) { Write-Log "xorriso stderr: $stderr" -Level DEBUG }
+            Write-Log "xorriso exit code: $($process.ExitCode)" -Level DEBUG
+
+            if ((Test-Path $isoPath) -and (Get-Item $isoPath).Length -gt 0) {
                 $size = (Get-Item $isoPath).Length
                 Write-Log "Created cloud-init ISO using xorriso: $isoPath ($size bytes)" -Level SUCCESS
                 return $isoPath
+            }
+            else {
+                Write-Log "xorriso did not create a valid ISO file" -Level WARN
             }
         }
         catch {
@@ -1027,27 +1051,49 @@ detach vdisk
         $fsi.FileSystemsToCreate = 3  # ISO9660 + Joliet
         $fsi.VolumeName = "cidata"
 
-        $files = Get-ChildItem -Path $CloudInitDir -File
-        foreach ($file in $files) {
+        # Add files using FsiStream
+        foreach ($file in (Get-ChildItem -Path $CloudInitDir -File)) {
             Write-Log "Adding to ISO: $($file.Name)" -Level DEBUG
-            $stream = New-Object -ComObject ADODB.Stream
-            $stream.Type = 1  # adTypeBinary
-            $stream.Open()
-            $stream.LoadFromFile($file.FullName)
-            $fsi.Root.AddFile($file.Name, $stream)
+            $content = [System.IO.File]::ReadAllBytes($file.FullName)
+
+            # Create an IStream from the content
+            $memStream = New-Object System.IO.MemoryStream (,$content)
+            $comStream = [System.Runtime.InteropServices.ComTypes.IStream]
+
+            # Use ADODB.Stream to load the file
+            $adoStream = New-Object -ComObject ADODB.Stream
+            $adoStream.Type = 1  # Binary
+            $adoStream.Open()
+            $adoStream.LoadFromFile($file.FullName)
+            $fsi.Root.AddFile($file.Name, $adoStream)
         }
 
-        $result = $fsi.CreateResultImage()
-        $imageStream = $result.ImageStream
+        Write-Log "Creating ISO result image..." -Level DEBUG
+        $resultImage = $fsi.CreateResultImage()
 
-        $outStream = New-Object -ComObject ADODB.Stream
-        $outStream.Type = 1
-        $outStream.Open()
-        $outStream.Write($imageStream.Read())
-        $outStream.SaveToFile($isoPath, 2)
-        $outStream.Close()
+        # Get the image as a byte array using ADODB.Stream
+        $adoStreamOut = New-Object -ComObject ADODB.Stream
+        $adoStreamOut.Type = 1  # Binary
+        $adoStreamOut.Open()
+        $adoStreamOut.CopyTo($resultImage.ImageStream)
 
-        if (Test-Path $isoPath) {
+        # Alternative: Write directly using the result's TotalBlocks and BlockSize
+        $totalBlocks = $resultImage.TotalBlocks
+        $blockSize = $resultImage.BlockSize
+        Write-Log "ISO will have $totalBlocks blocks of $blockSize bytes" -Level DEBUG
+
+        # Use a different approach - save via ADODB
+        $imageStream = $resultImage.ImageStream
+
+        # Create output ADODB stream and copy
+        $outAdoStream = New-Object -ComObject ADODB.Stream
+        $outAdoStream.Type = 1
+        $outAdoStream.Open()
+        $imageStream.CopyTo($outAdoStream)
+        $outAdoStream.SaveToFile($isoPath, 2)  # adSaveCreateOverWrite
+        $outAdoStream.Close()
+
+        if ((Test-Path $isoPath) -and (Get-Item $isoPath).Length -gt 0) {
             $size = (Get-Item $isoPath).Length
             Write-Log "Created cloud-init ISO using IMAPI2: $isoPath ($size bytes)" -Level SUCCESS
             return $isoPath
