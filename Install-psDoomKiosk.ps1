@@ -403,9 +403,31 @@ function Start-ExistingVM {
     Write-Host "    Ctrl+Alt+G    Release mouse" -ForegroundColor DarkGray
     Write-Host "    Ctrl+Alt+F    Toggle fullscreen" -ForegroundColor DarkGray
     Write-Host ""
-    
+
+    # Detect hardware acceleration
+    $accelArg = @()
+    $whpxTest = & $qemuPath -accel help 2>&1 | Out-String
+    if ($whpxTest -match "whpx") {
+        $accelArg = @("-accel", "whpx,kernel-irqchip=off")
+        Write-Status "Using WHPX hardware acceleration" -Type Success
+    } elseif ($whpxTest -match "hax") {
+        $accelArg = @("-accel", "hax")
+        Write-Status "Using HAXM hardware acceleration" -Type Success
+    } else {
+        $accelArg = @("-accel", "tcg")
+        Write-Status "Using software emulation (slower)" -Type Warning
+    }
+
+    # Console log for monitoring
+    $serialLog = Join-Path $Config.InstallPath "logs\vm-console.log"
+    $logDir = Split-Path $serialLog -Parent
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    }
+
     $qemuArgs = @(
         "-name", "psDoom-Kiosk"
+    ) + $accelArg + @(
         "-m", "$($Config.Memory)M"
         "-smp", "cores=$($Config.Cores)"
         "-hda", $diskPath
@@ -414,6 +436,7 @@ function Start-ExistingVM {
         "-device", "virtio-net-pci,netdev=net0"
         "-vga", "virtio"
         "-display", "sdl"
+        "-serial", "file:$serialLog"
         "-full-screen"
     )
     
