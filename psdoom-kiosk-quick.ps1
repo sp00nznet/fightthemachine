@@ -1186,8 +1186,29 @@ Started: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 "@
     $header | Out-File -FilePath $serialLog -Encoding ascii
 
+    # Try to use hardware acceleration (WHPX on Windows with Hyper-V)
+    $accelArg = $null
+    $whpxTest = & $qemu -accel help 2>&1 | Out-String
+    if ($whpxTest -match "whpx") {
+        # Test if WHPX actually works
+        $testResult = & $qemu -accel whpx -machine q35 -m 64 -display none -S 2>&1 | Out-String
+        if ($testResult -notmatch "failed|error|not supported") {
+            $accelArg = @("-accel", "whpx,kernel-irqchip=off")
+            Write-Log "Using WHPX hardware acceleration" -Level SUCCESS
+        }
+    }
+    if (-not $accelArg -and $whpxTest -match "hax") {
+        $accelArg = @("-accel", "hax")
+        Write-Log "Using HAXM hardware acceleration" -Level SUCCESS
+    }
+    if (-not $accelArg) {
+        $accelArg = @("-accel", "tcg")
+        Write-Log "Using TCG software emulation (slower)" -Level WARN
+    }
+
     $qemuArgs = @(
         "-name", "psDoom-Kiosk"
+    ) + $accelArg + @(
         "-m", "${VMMemoryMB}M"
         "-smp", "cores=$VMCores"
         "-hda", $DiskPath
