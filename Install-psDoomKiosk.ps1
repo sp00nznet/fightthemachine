@@ -478,25 +478,38 @@ function Start-NewInstallation {
     Write-Host ""
     Write-Status "Starting installation..." -Type Info
     Write-Host ""
-    
-    # Build arguments
-    $args = @(
-        "-ExecutionPolicy", "Bypass"
-        "-File", $scriptPath
-        "-InstallPath", $Config.InstallPath
-        "-VMMemoryMB", $Config.Memory
-        "-VMCores", $Config.Cores
-        "-VMDiskGB", $Config.DiskSize
-    )
-    
-    Write-Log "Launching: powershell.exe $($args -join ' ')" -Level DEBUG
-    
-    # Run the installation script
-    Start-Process -FilePath "powershell.exe" -ArgumentList $args -Wait
-    
-    Write-Host ""
-    Write-Status "Installation script completed" -Type Success
-    Write-Log "Installation script completed" -Level SUCCESS
+
+    Write-Log "Running installation script: $scriptPath" -Level DEBUG
+    Write-Log "Parameters: InstallPath=$($Config.InstallPath), Memory=$($Config.Memory), Cores=$($Config.Cores), Disk=$($Config.DiskSize)" -Level DEBUG
+
+    # Run the installation script directly in this session (not as separate process)
+    # This ensures we see all output and catch any errors
+    try {
+        & $scriptPath `
+            -InstallPath $Config.InstallPath `
+            -VMMemoryMB $Config.Memory `
+            -VMCores $Config.Cores `
+            -VMDiskGB $Config.DiskSize
+
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -and $exitCode -ne 0) {
+            throw "Installation script exited with code: $exitCode"
+        }
+
+        Write-Host ""
+        Write-Status "Installation completed successfully!" -Type Success
+        Write-Log "Installation script completed successfully" -Level SUCCESS
+    }
+    catch {
+        Write-Host ""
+        Write-Status "Installation failed: $_" -Type Error
+        Write-Log "Installation failed: $_" -Level ERROR
+        Write-Log "Stack trace: $($_.ScriptStackTrace)" -Level DEBUG
+        Write-Host ""
+        Write-Host "  Check the logs folder for details:" -ForegroundColor Yellow
+        Write-Host "  $($Config.InstallPath)\logs" -ForegroundColor Gray
+    }
+
     Write-Host ""
     Read-Host "  Press Enter to continue"
 }
