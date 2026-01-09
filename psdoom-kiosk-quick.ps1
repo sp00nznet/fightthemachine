@@ -100,12 +100,17 @@ function Write-LogSection {
 # =============================================================================
 
 $Config = @{
-    QEMUUrl         = "https://qemu.weilnetz.de/w64/2024/qemu-w64-setup-20240217.exe"
+    # Multiple QEMU download URLs to try (in order of preference)
+    QEMUUrls        = @(
+        "https://qemu.weilnetz.de/w64/2025/qemu-w64-setup-20251217.exe"
+        "https://qemu.weilnetz.de/w64/2025/qemu-w64-setup-20251127.exe"
+        "https://qemu.weilnetz.de/w64/2025/qemu-w64-setup-20250826.exe"
+    )
     QEMUPath        = "C:\Program Files\qemu"
-    
+
     DebianCloudUrl  = "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2"
     DebianImageName = "debian-12-cloud.qcow2"
-    
+
     VMDiskName      = "psdoom-disk.qcow2"
     CloudInitISO    = "cloud-init.iso"
 }
@@ -291,27 +296,49 @@ Write-Host "Controls: Ctrl+Alt+G = Release mouse, Ctrl+Alt+F = Fullscreen" -Fore
 
 function Install-QEMU {
     Write-LogSection "Installing QEMU"
-    
+
     $qemuExe = Join-Path $Config.QEMUPath "qemu-system-x86_64.exe"
-    
+
     if (Test-Path $qemuExe) {
         Write-Log "QEMU already installed" -Level SUCCESS
         return
     }
-    
+
     $installer = Join-Path $InstallPath "qemu-setup.exe"
     if (-not (Test-Path $installer)) {
-        Get-FileWithProgress -Url $Config.QEMUUrl -Out $installer
+        # Try each QEMU mirror URL until one works
+        $downloaded = $false
+        foreach ($url in $Config.QEMUUrls) {
+            Write-Log "Trying QEMU download: $url" -Level INFO
+            try {
+                Get-FileWithProgress -Url $url -Out $installer
+                if (Test-Path $installer) {
+                    $downloaded = $true
+                    break
+                }
+            }
+            catch {
+                Write-Log "Failed to download from $url`: $_" -Level WARN
+                # Clean up partial download
+                if (Test-Path $installer) {
+                    Remove-Item $installer -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        if (-not $downloaded) {
+            throw "Failed to download QEMU from any mirror. Please download manually from https://qemu.weilnetz.de/w64/"
+        }
     }
-    
+
     Write-Log "Installing QEMU (silent)..." -Level INFO
     $process = Start-Process -FilePath $installer -ArgumentList "/S" -Wait -PassThru
-    
+
     if ($process.ExitCode -ne 0) {
         Write-Log "QEMU installation failed with code: $($process.ExitCode)" -Level ERROR
         throw "QEMU installation failed"
     }
-    
+
     Write-Log "QEMU installed successfully" -Level SUCCESS
 }
 
