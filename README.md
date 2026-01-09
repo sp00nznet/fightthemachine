@@ -1,151 +1,121 @@
-# psDoom Kiosk
+# psDoom Docker
 
-> Kill processes. Not demons. In a VM.
+> Kill processes. Not demons. In your browser.
 
-Automated setup for a **psDoom kiosk VM** on Windows. Creates a minimal Debian virtual machine that boots directly into [psDoom](https://github.com/sp00nznet/psdoom-src) - the classic DOOM mod where you kill your system processes instead of demons.
+Run [psDoom](https://github.com/sp00nznet/psdoom-src) in a Docker container with HTML5 browser access. No VM, no QEMU, no X11 forwarding - just open your browser and start killing processes.
 
 ---
 
 ## Quick Start
 
-1. **Right-click** `Install-psDoomKiosk.ps1` -> **Run with PowerShell**
-2. Select **[1] New Installation**
-3. Choose **[1] Quick Install** (recommended)
-4. Wait ~10-15 minutes
-5. Done! The VM boots straight into psDoom
+```bash
+# Clone and run
+git clone https://github.com/sp00nznet/fightthemachine.git
+cd fightthemachine
+./run.sh
 
----
+# Open in browser
+open http://localhost:6080
+```
 
-## What's Included
+**Windows:**
+```batch
+git clone https://github.com/sp00nznet/fightthemachine.git
+cd fightthemachine
+run.bat
 
-| File | Description |
-|------|-------------|
-| `Install-psDoomKiosk.ps1` | Interactive menu-driven installer |
-| `psdoom-kiosk.ps1` | Full installation (Debian ISO + preseed) |
-| `psdoom-kiosk-quick.ps1` | Quick installation (Debian cloud image) |
-| `README.md` | This file |
+:: Open http://localhost:6080 in your browser
+```
 
 ---
 
 ## Requirements
 
-- **Windows 10/11** (64-bit)
-- **~25GB free disk space** (for QEMU + VM)
-- **Internet connection** (for downloads)
-- **Administrator access** (recommended, not required)
+- **Docker** with Docker Compose
+- **~1GB disk space** for the container image
+- A modern web browser
 
-Everything else is downloaded automatically:
-- QEMU for Windows
-- Debian 12 (Bookworm)
-- psDoom source code
-- Shareware DOOM WAD
+That's it. Everything else is containerized.
 
 ---
 
-## Features
+## How It Works
 
-### Logging
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Your Browser                          │
+│                  http://localhost:6080                   │
+└─────────────────────┬───────────────────────────────────┘
+                      │ HTML5 WebSocket
+                      ▼
+┌─────────────────────────────────────────────────────────┐
+│                  Docker Container                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │   noVNC     │──│   x11vnc    │──│    Xvfb     │     │
+│  │  (HTML5)    │  │ (VNC server)│  │ (Virtual X) │     │
+│  └─────────────┘  └─────────────┘  └──────┬──────┘     │
+│                                           │             │
+│  ┌─────────────┐                   ┌──────┴──────┐     │
+│  │  Process    │                   │   psDoom    │     │
+│  │  Respawner  │◄──────────────────│   (game)    │     │
+│  └─────────────┘   kills processes └─────────────┘     │
+└─────────────────────────────────────────────────────────┘
+```
 
-All scripts create detailed logs in `%USERPROFILE%\psdoom-kiosk\logs\`:
-- `installer-YYYYMMDD-HHMMSS.log` - Interactive installer logs
-- `install-quick-YYYYMMDD-HHMMSS.log` - Quick install logs
-- `install-full-YYYYMMDD-HHMMSS.log` - Full install logs
-
-Access logs via:
-- Menu option **[4] View Logs**
-- Desktop shortcut **psDoom Kiosk - View Logs**
-
-### Desktop Shortcuts
-
-After installation, these shortcuts are created:
-- **psDoom Kiosk** - Launch the VM
-- **psDoom Kiosk - Open Folder** - Open installation directory
-- **psDoom Kiosk - View Logs** - Open logs folder
-
-A Start Menu shortcut is also created.
-
----
-
-## Installation Methods
-
-### Quick Install (Recommended)
-
-Uses a Debian **cloud image** with cloud-init for configuration.
-
-- Smaller download (~700MB)
-- Faster setup (~10-15 min)
-- Fully automated
-
-### Full Install
-
-Uses the Debian **netinst ISO** with preseed automation.
-
-- Traditional OS installation
-- More customizable
-- Longer setup (~20-30 min)
+1. **Xvfb** creates a virtual X11 display
+2. **psDoom** runs fullscreen on that display
+3. **x11vnc** captures the display as VNC
+4. **noVNC** converts VNC to HTML5 WebSocket
+5. **Your browser** renders the game
+6. **Process Respawner** brings back killed processes (like DOOM enemies!)
 
 ---
 
 ## Usage
 
-### Interactive Mode
+### Run Commands
 
-```powershell
-.\Install-psDoomKiosk.ps1
+```bash
+./run.sh start    # Build and start (default)
+./run.sh stop     # Stop the container
+./run.sh restart  # Restart the container
+./run.sh logs     # View container logs
+./run.sh status   # Check container status
+./run.sh build    # Rebuild the image
+./run.sh shell    # Open a shell in the container
 ```
 
-Opens a menu with options to:
-1. Install new VM
-2. Start existing VM
-3. Configure settings
-4. View logs
-5. Uninstall
+### Docker Compose
 
-### Command Line
+```bash
+# Start in foreground (see logs)
+docker compose up
 
-```powershell
-# Quick install with defaults
-.\psdoom-kiosk-quick.ps1
+# Start in background
+docker compose up -d
 
-# Full install with custom settings
-.\psdoom-kiosk.ps1 -VMMemoryMB 4096 -VMCores 4 -VMDiskGB 30
+# Stop
+docker compose down
 
-# Start existing VM
-.\psdoom-kiosk.ps1 -StartOnly
-
-# Non-interactive install
-.\Install-psDoomKiosk.ps1 -NonInteractive -Method Quick
+# Rebuild
+docker compose up -d --build
 ```
 
-### Parameters
+### Ports
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `-InstallPath` | `%USERPROFILE%\psdoom-kiosk` | Installation directory |
-| `-VMMemoryMB` | `2048` | VM RAM in megabytes |
-| `-VMCores` | `2` | VM CPU cores |
-| `-VMDiskGB` | `20` | VM disk size in gigabytes |
-| `-StartOnly` | - | Skip install, just launch VM |
-| `-SkipQEMUInstall` | - | Don't install QEMU |
+| Port | Protocol | Description |
+|------|----------|-------------|
+| 6080 | HTTP | HTML5 web interface (primary) |
+| 5900 | VNC | Direct VNC access (optional) |
 
 ---
 
-## After Installation
+## Game Controls
 
-### Starting the Kiosk
+### Browser Controls
 
-Use any of these methods:
-- Desktop shortcut **psDoom Kiosk**
-- Run `Install-psDoomKiosk.ps1` -> **[2] Start Existing VM**
-- Double-click `Start-psDoom.bat` in the install folder
-
-### QEMU Controls
-
-| Keys | Action |
-|------|--------|
-| `Ctrl+Alt+G` | Release mouse from VM |
-| `Ctrl+Alt+F` | Toggle fullscreen |
-| `Ctrl+Alt+Q` | Quit QEMU |
+- **Click** anywhere to capture mouse
+- **Esc** to release mouse
 
 ### psDoom Controls
 
@@ -160,174 +130,176 @@ Use any of these methods:
 
 ### What psDoom Does
 
-psDoom replaces DOOM monsters with your actual running processes:
-- **Imps** = Low-priority processes
-- **Demons** = Medium-priority processes  
-- **Barons** = High-priority processes
-- **Killing a monster** = Kills the process (`kill -9`)
+psDoom replaces DOOM monsters with your container's running processes:
 
-**Warning**: This runs inside the VM, so it kills *VM* processes, not your host machine. Still, be careful - killing the wrong process can crash the VM.
+- **Zombieman** = Trivial processes (cat, sleep, echo)
+- **Imp** = User apps (vim, python, grep)
+- **Demon** = Desktop processes (window managers)
+- **Cacodemon** = System daemons (cron, networking)
+- **Baron of Hell** = Critical services (init, display server)
 
-### Process Respawner (The Demons Keep Coming Back!)
+**Killing a monster = Killing the process (`kill -9`)**
 
-The VM includes a **Process Respawner Daemon** that monitors killed processes and respawns them after a delay. Just like in DOOM, the enemies keep coming back!
+Don't worry - it only kills processes *inside the container*, not on your host.
 
-**Respawn delays are based on enemy difficulty:**
+---
+
+## Process Respawner
+
+The container includes a **Process Respawner Daemon** - killed processes come back after a delay, just like DOOM enemies!
+
+**Respawn delays by enemy tier:**
 
 | Enemy Tier | Process Type | Respawn Delay |
 |------------|--------------|---------------|
-| Zombieman | Trivial (cat, sleep, echo) | 5-10 seconds |
-| Imp | User apps (vim, python, grep) | 8-15 seconds |
-| Demon | Desktop (xfce4, thunar, pulseaudio) | 12-20 seconds |
-| Cacodemon | System daemons (cron, NetworkManager) | 15-25 seconds |
-| Baron of Hell | Critical services (systemd, Xorg, lightdm) | 20-30 seconds |
+| Zombieman | Trivial (cat, sleep) | 5-10 seconds |
+| Imp | User apps (vim, python) | 8-15 seconds |
+| Demon | Desktop components | 12-20 seconds |
+| Cacodemon | System daemons | 15-25 seconds |
+| Baron of Hell | Critical services | 20-30 seconds |
 
-The harder the enemy, the longer it takes to respawn!
+The harder the enemy, the longer before it respawns!
 
-**Respawner logs**: `/var/log/process-respawner.log`
-
-**Manage the respawner**:
+**View respawner logs:**
 ```bash
-# Check status
-systemctl status process-respawner
-
-# Stop respawning (easy mode)
-systemctl stop process-respawner
-
-# Restart respawner
-systemctl restart process-respawner
-
-# View respawner logs
-tail -f /var/log/process-respawner.log
+docker exec psdoom tail -f /var/log/process-respawner.log
 ```
 
 ---
 
-## File Locations
+## Configuration
 
-After installation:
+### Environment Variables
 
+Set in `docker-compose.yml` or via command line:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RESOLUTION` | `1024x768` | Display resolution |
+| `VNC_PORT` | `5900` | VNC server port |
+| `NOVNC_PORT` | `6080` | noVNC web port |
+
+### Custom Resolution
+
+```yaml
+# docker-compose.yml
+services:
+  psdoom:
+    environment:
+      - RESOLUTION=1920x1080
 ```
-%USERPROFILE%\psdoom-kiosk\
-|-- logs\                      # Installation and runtime logs
-|   |-- installer-*.log
-|   |-- install-quick-*.log
-|   +-- install-full-*.log
-|-- psdoom-disk.qcow2          # VM disk image
-|-- debian-12-cloud.qcow2      # Base image (Quick install)
-|-- debian-12-netinst.iso      # ISO (Full install)
-|-- cloud-init-data\           # Cloud-init config
-|-- Start-psDoom.bat           # Quick launcher
-+-- Start-psDoom.ps1           # PowerShell launcher
+
+Or:
+
+```bash
+docker run -e RESOLUTION=1920x1080 -p 6080:6080 psdoom
 ```
 
-QEMU is installed to `C:\Program Files\qemu\`
+### Resource Limits
+
+Default limits in `docker-compose.yml`:
+- **CPU**: 2 cores
+- **Memory**: 1GB
+
+Adjust as needed:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '4'
+      memory: 2G
+```
+
+---
+
+## Building Manually
+
+```bash
+# Build the image
+docker build -t psdoom .
+
+# Run without compose
+docker run -d \
+  --name psdoom \
+  -p 6080:6080 \
+  -p 5900:5900 \
+  --cap-add SYS_PTRACE \
+  psdoom
+```
 
 ---
 
 ## Troubleshooting
 
-### Check the Logs First!
+### "Can't connect to http://localhost:6080"
 
-Most issues can be diagnosed from the logs:
-1. Run installer -> **[4] View Logs**
-2. Open the most recent `.log` file
-3. Search for `[ERROR]` or `[WARN]` entries
+1. Check if container is running: `./run.sh status`
+2. Check logs: `./run.sh logs`
+3. Wait ~30 seconds for full startup
+4. Try a different browser
 
-### "QEMU installation failed"
+### "Black screen in browser"
 
-- Run as Administrator
-- Check antivirus isn't blocking the installer
-- Check logs for specific error
-- Manually download from [qemu.weilnetz.de](https://qemu.weilnetz.de/w64/)
+1. Check if Xvfb started: `docker exec psdoom pgrep Xvfb`
+2. Check psDoom logs: `docker exec psdoom cat /var/log/supervisor/psdoom.log`
+3. Rebuild: `./run.sh build && ./run.sh start`
 
-### "VM won't start"
+### "psDoom crashes / exits"
 
-- Ensure Hyper-V is disabled (conflicts with QEMU)
-- Check if another VM is using the disk file
-- Try increasing memory (`-VMMemoryMB 4096`)
-- Check logs for QEMU errors
+1. Check logs: `docker exec psdoom cat /var/log/supervisor/psdoom.err`
+2. Verify WAD file exists: `docker exec psdoom ls -la /home/doom/.psdoom/`
+3. Try running manually: `docker exec -it psdoom /usr/local/bin/psdoom -iwad /home/doom/.psdoom/DOOM1.WAD`
 
-### "psDoom doesn't start after boot"
+### "VNC client won't connect to port 5900"
 
-The first boot takes time to:
-1. Run cloud-init
-2. Install packages
-3. Clone and build psDoom
-4. Download the WAD file
-
-Wait for the VM to reboot automatically. If it's stuck:
+VNC is passwordless by default. If your client requires a password, set one:
 
 ```bash
-# SSH into VM (if networking works)
-ssh doom@<vm-ip>  # password: psdoom
-
-# Check build log
-cat /home/doom/setup.log
-
-# Check cloud-init status
-cat /var/log/cloud-init-output.log
-
-# Manually run setup
-/home/doom/setup-psdoom.sh
-```
-
-### "No display / black screen"
-
-- Try different display: add `-display gtk` to QEMU args
-- Update graphics drivers on host
-- Check logs for QEMU stderr
-
----
-
-## Uninstalling
-
-### Via Menu
-
-Run `Install-psDoomKiosk.ps1` -> **[5] Uninstall**
-
-This removes:
-- VM disk and configuration
-- Downloaded images/ISOs
-- All shortcuts (Desktop and Start Menu)
-- Log files
-
-### Manually
-
-```powershell
-# Remove VM files
-Remove-Item -Recurse "$env:USERPROFILE\psdoom-kiosk"
-
-# Remove desktop shortcuts
-Remove-Item "$env:USERPROFILE\Desktop\psDoom Kiosk*.lnk"
-
-# (Optional) Uninstall QEMU via Control Panel
+docker exec psdoom x11vnc -storepasswd yourpassword /tmp/vncpass
+# Then restart the container
 ```
 
 ---
 
-## How It Works
+## Files
 
-1. **Downloads QEMU** for Windows (hardware-accelerated x86 emulation)
-2. **Downloads Debian** cloud image or netinst ISO
-3. **Creates VM disk** (qcow2 format, grows as needed)
-4. **Configures cloud-init/preseed** for automated setup:
-   - Creates `doom` user with auto-login
-   - Installs XFCE (minimal desktop)
-   - Clones psDoom from GitHub
-   - Builds from source (SDL 1.2)
-   - Downloads shareware DOOM WAD
-   - Sets psDoom as autostart application
-5. **Creates shortcuts** on Desktop and Start Menu
-6. **Boots into kiosk mode** - nothing but DOOM
+```
+fightthemachine/
+├── Dockerfile              # Container build instructions
+├── docker-compose.yml      # Compose configuration
+├── run.sh                  # Linux/Mac helper script
+├── run.bat                 # Windows helper script
+├── docker/
+│   ├── supervisord.conf    # Process manager config
+│   ├── start-psdoom.sh     # psDoom launcher
+│   ├── start-vnc.sh        # VNC server launcher
+│   ├── process-respawner.py# Respawn daemon
+│   └── openbox-rc.xml      # Window manager config
+└── README.md               # This file
+```
+
+---
+
+## Legacy VM Scripts
+
+The original QEMU-based VM scripts are still available:
+
+| File | Description |
+|------|-------------|
+| `Install-psDoomKiosk.ps1` | Interactive Windows installer |
+| `psdoom-kiosk.ps1` | Full ISO installation |
+| `psdoom-kiosk-quick.ps1` | Quick cloud image install |
+
+These create a full Debian VM with XFCE desktop. Use the Docker version instead for simpler deployment.
 
 ---
 
 ## Credits
 
 - [psDoom](https://github.com/sp00nznet/psdoom-src) by Dennis Chao (original), orsonteodoro (updates)
-- [QEMU](https://www.qemu.org/) - the emulator
-- [Debian](https://www.debian.org/) - the OS
+- [noVNC](https://novnc.com/) - HTML5 VNC client
+- [Docker](https://www.docker.com/) - containerization
 - [id Software](https://www.idsoftware.com/) - for DOOM
 
 ---
