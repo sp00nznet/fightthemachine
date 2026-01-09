@@ -369,6 +369,19 @@ users:
     lock_passwd: false
     plain_text_passwd: psdoom
 
+# Enable serial console for boot messages
+bootcmd:
+  - echo "[PSDOOM] Cloud-init bootcmd starting..." > /dev/ttyS0
+  - |
+    # Enable serial console in GRUB
+    if [ -f /etc/default/grub ]; then
+      sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="[^"]*"/GRUB_CMDLINE_LINUX_DEFAULT="console=tty0 console=ttyS0,115200n8"/' /etc/default/grub
+      sed -i 's/#GRUB_TERMINAL=console/GRUB_TERMINAL="console serial"/' /etc/default/grub
+      echo 'GRUB_SERIAL_COMMAND="serial --speed=115200 --unit=0 --word=8 --parity=no --stop=1"' >> /etc/default/grub
+      update-grub 2>/dev/null || true
+    fi
+  - echo "[PSDOOM] Serial console configured" > /dev/ttyS0
+
 package_update: true
 
 packages:
@@ -734,34 +747,48 @@ write_files:
     content: |
       #!/bin/bash
       set -e
-      exec > /home/doom/setup.log 2>&1
-      echo "=== psDoom Setup Started ==="
-      date
-      
+
+      # Log to both file and serial console
+      exec > >(tee -a /home/doom/setup.log | tee /dev/ttyS0) 2>&1
+
+      echo "========================================"
+      echo "[PSDOOM] Setup Started"
+      echo "[PSDOOM] Time: $(date)"
+      echo "========================================"
+
       cd /home/doom
-      echo "Cloning psDoom..."
+      echo "[PSDOOM] Cloning psDoom repository..."
       git clone https://github.com/sp00nznet/psdoom-src.git build
-      
+      echo "[PSDOOM] Clone complete"
+
       cd build/trunk
-      echo "Configuring..."
+      echo "[PSDOOM] Running configure..."
       ./configure
-      
-      echo "Building..."
+      echo "[PSDOOM] Configure complete"
+
+      echo "[PSDOOM] Building psDoom (this takes a few minutes)..."
       make
-      
-      echo "Installing..."
+      echo "[PSDOOM] Build complete"
+
+      echo "[PSDOOM] Installing..."
       mkdir -p /home/doom/psdoom
       cp src/psdoom /home/doom/psdoom/
-      
+      echo "[PSDOOM] Binary installed to /home/doom/psdoom/"
+
       cd /home/doom/psdoom
-      echo "Downloading WAD..."
+      echo "[PSDOOM] Downloading DOOM WAD file..."
       wget -q https://archive.org/download/DoomsharewareDOOM1.WAD/DOOM1.WAD -O doom1.wad || \
       wget -q https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad -O doom1.wad || true
-      
-      echo "Cleaning up..."
+      if [ -f doom1.wad ]; then
+        echo "[PSDOOM] WAD file downloaded successfully"
+      else
+        echo "[PSDOOM] WARNING: WAD file download failed"
+      fi
+
+      echo "[PSDOOM] Cleaning up build directory..."
       rm -rf /home/doom/build
-      
-      echo "Creating autostart..."
+
+      echo "[PSDOOM] Creating autostart configuration..."
       mkdir -p /home/doom/.config/autostart
       cat > /home/doom/.config/autostart/psdoom.desktop << 'EOF'
       [Desktop Entry]
@@ -771,29 +798,45 @@ write_files:
       Hidden=false
       X-GNOME-Autostart-enabled=true
       EOF
-      
+
       cat > /home/doom/start-psdoom.sh << 'EOF'
       #!/bin/bash
+      echo "[PSDOOM] Starting psDoom..." > /dev/ttyS0
       sleep 3
       xset s off -dpms
       cd /home/doom/psdoom
+      echo "[PSDOOM] Launching game" > /dev/ttyS0
       exec ./psdoom -fullscreen
       EOF
       chmod +x /home/doom/start-psdoom.sh
-      
+
       chown -R doom:doom /home/doom
-      
-      echo "=== psDoom Setup Complete ==="
-      date
+
+      echo "========================================"
+      echo "[PSDOOM] Setup Complete"
+      echo "[PSDOOM] Time: $(date)"
+      echo "========================================"
 
 runcmd:
+  - echo "[PSDOOM] ======================================" > /dev/ttyS0
+  - echo "[PSDOOM] Cloud-init runcmd starting..." > /dev/ttyS0
+  - echo "[PSDOOM] ======================================" > /dev/ttyS0
+  - echo "[PSDOOM] Enabling lightdm..." > /dev/ttyS0
   - systemctl enable lightdm
+  - echo "[PSDOOM] Setting graphical target..." > /dev/ttyS0
   - systemctl set-default graphical.target
+  - echo "[PSDOOM] Reloading systemd..." > /dev/ttyS0
   - systemctl daemon-reload
+  - echo "[PSDOOM] Enabling process-respawner service..." > /dev/ttyS0
   - systemctl enable process-respawner.service
+  - echo "[PSDOOM] Running psDoom setup script..." > /dev/ttyS0
   - su - doom -c '/home/doom/setup-psdoom.sh'
+  - echo "[PSDOOM] Starting process-respawner service..." > /dev/ttyS0
   - systemctl start process-respawner.service
-  - echo "Setup complete, rebooting..." >> /var/log/cloud-init-psdoom.log
+  - echo "[PSDOOM] ======================================" > /dev/ttyS0
+  - echo "[PSDOOM] All setup complete! Rebooting in 5s..." > /dev/ttyS0
+  - echo "[PSDOOM] ======================================" > /dev/ttyS0
+  - sleep 5
   - reboot
 '@
     $userData | Out-File -FilePath (Join-Path $ciDir "user-data") -Encoding ascii -NoNewline
@@ -874,11 +917,29 @@ function New-VMDisk {
 function Start-Kiosk {
     param(
         [string]$DiskPath,
-        [string]$CloudInitISO = $null
+        [string]$CloudInitISO = $null,
+        [switch]$FirstBoot
     )
-    
+
     $qemu = Join-Path $Config.QEMUPath "qemu-system-x86_64.exe"
-    
+
+    # Serial console log file for monitoring VM status
+    $serialLog = Join-Path $InstallPath "logs\vm-console.log"
+    $logDir = Split-Path $serialLog -Parent
+    if (-not (Test-Path $logDir)) {
+        New-Item -ItemType Directory -Path $logDir -Force | Out-Null
+    }
+
+    # Initialize serial log with header
+    $header = @"
+================================================================================
+psDoom Kiosk VM Console Log
+Started: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+================================================================================
+
+"@
+    $header | Out-File -FilePath $serialLog -Encoding ascii
+
     $qemuArgs = @(
         "-name", "psDoom-Kiosk"
         "-m", "${VMMemoryMB}M"
@@ -889,19 +950,28 @@ function Start-Kiosk {
         "-device", "virtio-net-pci,netdev=net0"
         "-vga", "virtio"
         "-display", "sdl"
+        "-serial", "file:$serialLog"
     )
-    
+
     if ($CloudInitISO -and (Test-Path $CloudInitISO)) {
         $qemuArgs += @("-cdrom", $CloudInitISO)
         Write-Log "Attaching cloud-init ISO" -Level DEBUG
     }
-    
+
     Write-Log "Starting QEMU..." -Level INFO
+    Write-Log "Serial console log: $serialLog" -Level INFO
     Write-Log "Args: $($qemuArgs -join ' ')" -Level DEBUG
-    
+
     Start-Process -FilePath $qemu -ArgumentList $qemuArgs
-    
+
     Write-Log "QEMU started" -Level SUCCESS
+
+    if ($FirstBoot) {
+        Write-Host ""
+        Write-Host "  Monitor VM progress with:" -ForegroundColor Yellow
+        Write-Host "    Get-Content '$serialLog' -Wait" -ForegroundColor Cyan
+        Write-Host ""
+    }
 }
 
 # =============================================================================
@@ -977,13 +1047,29 @@ function Main {
         Write-Host "    Ctrl+Alt+G = Release mouse"
         Write-Host "    Ctrl+Alt+F = Toggle fullscreen"
         Write-Host ""
-        
-        Start-Kiosk -DiskPath $diskPath -CloudInitISO $cloudInitISO
-        
+
+        Start-Kiosk -DiskPath $diskPath -CloudInitISO $cloudInitISO -FirstBoot
+
         Write-LogSection "Setup Complete!"
         Write-Log "Installation finished successfully" -Level SUCCESS
         Write-Log "Log file: $script:LogFile" -Level INFO
-        
+
+        $serialLog = Join-Path $InstallPath "logs\vm-console.log"
+
+        Write-Host ""
+        Write-Host "  VM is now booting and configuring itself." -ForegroundColor Green
+        Write-Host ""
+        Write-Host "  Monitor VM progress in real-time:" -ForegroundColor Yellow
+        Write-Host "    Get-Content '$serialLog' -Wait -Tail 50" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Or open the log file:" -ForegroundColor Yellow
+        Write-Host "    $serialLog" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "  Look for [PSDOOM] messages to track progress:" -ForegroundColor Gray
+        Write-Host "    - Cloud-init bootcmd starting"
+        Write-Host "    - Package installation"
+        Write-Host "    - psDoom build progress"
+        Write-Host "    - Setup complete / Rebooting"
         Write-Host ""
         Write-Host "  Shortcuts created on Desktop:" -ForegroundColor Green
         Write-Host "    - psDoom Kiosk (launch VM)"
