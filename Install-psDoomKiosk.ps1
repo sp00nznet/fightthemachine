@@ -253,16 +253,17 @@ function Show-MainMenu {
     Clear-HostSafe
     Write-Logo
     Write-Header "Main Menu"
-    
+
     Write-MenuOption "1" "New Installation" "Set up a fresh psDoom kiosk VM"
     Write-MenuOption "2" "Start Existing VM" "Launch an already-installed kiosk"
     Write-MenuOption "3" "Configuration" "View/change settings"
     Write-MenuOption "4" "View Logs" "Open logs folder"
-    Write-MenuOption "5" "Uninstall" "Remove psDoom kiosk"
+    Write-MenuOption "5" "Monitor Console" "Watch VM console output in real-time"
+    Write-MenuOption "6" "Uninstall" "Remove psDoom kiosk"
     Write-Host ""
     Write-MenuOption "Q" "Quit" ""
-    
-    return Read-MenuChoice -Prompt "Select option" -ValidChoices @("1", "2", "3", "4", "5", "Q", "q")
+
+    return Read-MenuChoice -Prompt "Select option" -ValidChoices @("1", "2", "3", "4", "5", "6", "Q", "q")
 }
 
 function Show-InstallMethodMenu {
@@ -516,15 +517,126 @@ function Start-NewInstallation {
 
 function Open-LogsFolder {
     param([hashtable]$Config)
-    
+
     $logsPath = Join-Path $Config.InstallPath "logs"
-    
+
     if (-not (Test-Path $logsPath)) {
         New-Item -ItemType Directory -Path $logsPath -Force | Out-Null
     }
-    
+
     Write-Log "Opening logs folder: $logsPath" -Level INFO
     Start-Process explorer.exe -ArgumentList $logsPath
+}
+
+function Watch-ConsoleLog {
+    param([hashtable]$Config)
+
+    $consolePath = Join-Path $Config.InstallPath "logs\vm-console.log"
+
+    Clear-HostSafe
+    Write-Logo
+    Write-Header "Monitor VM Console Log"
+
+    if (-not (Test-Path $consolePath)) {
+        Write-Status "Console log not found: $consolePath" -Type Error
+        Write-Host ""
+        Write-Host "  The console log is created when the VM starts." -ForegroundColor Gray
+        Write-Host "  Make sure you've run an installation or started the VM." -ForegroundColor Gray
+        Write-Host ""
+        Read-Host "  Press Enter to continue"
+        return
+    }
+
+    Write-Host "  Watching: " -NoNewline -ForegroundColor Gray
+    Write-Host $consolePath -ForegroundColor Cyan
+    Write-Host "  Refreshing every 2 seconds. Press " -NoNewline -ForegroundColor Gray
+    Write-Host "Q" -NoNewline -ForegroundColor Yellow
+    Write-Host " to quit." -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  " + ("-" * 56) -ForegroundColor DarkGray
+    Write-Host ""
+
+    Write-Log "Starting console log monitor: $consolePath" -Level INFO
+
+    $lastSize = 0
+    $linesToShow = 25
+
+    # Set up key detection
+    $host.UI.RawUI.FlushInputBuffer()
+
+    while ($true) {
+        # Check for key press (non-blocking)
+        if ($host.UI.RawUI.KeyAvailable) {
+            $key = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            if ($key.Character -eq 'q' -or $key.Character -eq 'Q' -or $key.VirtualKeyCode -eq 27) {
+                Write-Log "User exited console monitor" -Level INFO
+                break
+            }
+        }
+
+        # Check if file exists and has content
+        if (Test-Path $consolePath) {
+            $currentSize = (Get-Item $consolePath).Length
+
+            # Only refresh display when file changes or first run
+            if ($currentSize -ne $lastSize -or $lastSize -eq 0) {
+                $lastSize = $currentSize
+
+                # Get last N lines of file
+                $content = Get-Content $consolePath -Tail $linesToShow -ErrorAction SilentlyContinue
+
+                # Move cursor up to overwrite previous content (save position first)
+                $cursorPos = $host.UI.RawUI.CursorPosition
+
+                # Clear the display area and show new content
+                $displayStartLine = 10  # After header
+                $host.UI.RawUI.CursorPosition = New-Object System.Management.Automation.Host.Coordinates(0, $displayStartLine)
+
+                # Clear lines
+                for ($i = 0; $i -lt ($linesToShow + 2); $i++) {
+                    Write-Host (" " * 80)
+                }
+
+                # Reset cursor and write content
+                $host.UI.RawUI.CursorPosition = New-Object System.Management.Automation.Host.Coordinates(0, $displayStartLine)
+
+                if ($content) {
+                    foreach ($line in $content) {
+                        # Truncate long lines
+                        if ($line.Length -gt 76) {
+                            $line = $line.Substring(0, 73) + "..."
+                        }
+
+                        # Color code based on content
+                        if ($line -match "error|fail|fatal" ) {
+                            Write-Host "  $line" -ForegroundColor Red
+                        } elseif ($line -match "warn") {
+                            Write-Host "  $line" -ForegroundColor Yellow
+                        } elseif ($line -match "success|complete|done|started|running") {
+                            Write-Host "  $line" -ForegroundColor Green
+                        } elseif ($line -match "cloud-init|psdoom|respawn") {
+                            Write-Host "  $line" -ForegroundColor Cyan
+                        } else {
+                            Write-Host "  $line" -ForegroundColor Gray
+                        }
+                    }
+                } else {
+                    Write-Host "  (waiting for output...)" -ForegroundColor DarkGray
+                }
+
+                # Show file size and timestamp
+                Write-Host ""
+                $timestamp = Get-Date -Format "HH:mm:ss"
+                Write-Host "  [$timestamp] Size: $currentSize bytes" -ForegroundColor DarkGray -NoNewline
+                Write-Host "  |  Press Q to quit" -ForegroundColor DarkGray
+            }
+        }
+
+        # Wait before next check
+        Start-Sleep -Milliseconds 500
+    }
+
+    Write-Host ""
 }
 
 function Start-Uninstall {
@@ -674,6 +786,9 @@ function Main {
                 Open-LogsFolder -Config $config
             }
             "5" {
+                Watch-ConsoleLog -Config $config
+            }
+            "6" {
                 Start-Uninstall -Config $config
             }
             { $_ -in "Q", "q" } {
