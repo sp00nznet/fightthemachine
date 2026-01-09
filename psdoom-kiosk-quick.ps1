@@ -330,7 +330,9 @@ local-hostname: psdoom-kiosk
     Write-Log "Created meta-data" -Level DEBUG
     
     # User-data with psDoom setup
-    $userData = @"
+    # Using single-quoted here-string to prevent PowerShell from interpreting
+    # backticks and $() in the embedded Python script
+    $userData = @'
 #cloud-config
 
 users:
@@ -766,7 +768,7 @@ runcmd:
   - systemctl start process-respawner.service
   - echo "Setup complete, rebooting..." >> /var/log/cloud-init-psdoom.log
   - reboot
-"@
+'@
     $userData | Out-File -FilePath (Join-Path $ciDir "user-data") -Encoding ascii -NoNewline
     Write-Log "Created user-data" -Level DEBUG
     
