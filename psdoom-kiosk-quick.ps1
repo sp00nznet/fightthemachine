@@ -849,13 +849,13 @@ runcmd:
 
 function New-CloudInitISO {
     param([string]$CloudInitDir)
-    
+
     Write-LogSection "Creating Cloud-Init ISO"
-    
+
     $isoPath = Join-Path $InstallPath $Config.CloudInitISO
-    
+
     # Try multiple methods to create ISO
-    
+
     # Method 1: mkisofs from QEMU directory
     $mkisofs = Join-Path $Config.QEMUPath "mkisofs.exe"
     if (Test-Path $mkisofs) {
@@ -866,7 +866,7 @@ function New-CloudInitISO {
             return $isoPath
         }
     }
-    
+
     # Method 2: oscdimg (Windows ADK)
     $oscdimg = Get-Command oscdimg -ErrorAction SilentlyContinue
     if ($oscdimg) {
@@ -877,10 +877,192 @@ function New-CloudInitISO {
             return $isoPath
         }
     }
-    
-    # Method 3: PowerShell ISO creation (basic)
-    Write-Log "No ISO tool found - will pass cloud-init via QEMU args" -Level WARN
-    return $null
+
+    # Method 3: Use qemu-img to create a FAT disk (cloud-init also supports this)
+    $qemuImg = Join-Path $Config.QEMUPath "qemu-img.exe"
+    if (Test-Path $qemuImg) {
+        Write-Log "Using qemu-img to create FAT disk for cloud-init" -Level INFO
+        try {
+            $fatDisk = Join-Path $InstallPath "cloud-init.img"
+
+            # Create a small FAT disk image
+            & $qemuImg create -f raw $fatDisk 1M 2>&1 | ForEach-Object { Write-Log $_ -Level DEBUG }
+
+            # Format it as FAT and add files using PowerShell
+            # First, we need to mount it, but that's complex on Windows
+            # Instead, let's use a simpler approach with mtools or just create the structure
+
+            # Actually, let's use a VHD approach which Windows can mount natively
+            Write-Log "Creating VHD-based cloud-init disk..." -Level DEBUG
+
+            # Create and mount a small VHD
+            $vhdPath = Join-Path $InstallPath "cloud-init.vhdx"
+            $diskpartScript = @"
+create vdisk file="$vhdPath" maximum=2 type=expandable
+select vdisk file="$vhdPath"
+attach vdisk
+create partition primary
+format fs=fat32 label="cidata" quick
+assign letter=Z
+"@
+            $scriptFile = Join-Path $env:TEMP "diskpart_ci.txt"
+            $diskpartScript | Out-File -FilePath $scriptFile -Encoding ascii
+
+            $result = Start-Process -FilePath "diskpart" -ArgumentList "/s `"$scriptFile`"" -Wait -PassThru -NoNewWindow
+            Start-Sleep -Seconds 2
+
+            if (Test-Path "Z:\") {
+                # Copy cloud-init files
+                Copy-Item (Join-Path $CloudInitDir "meta-data") "Z:\meta-data"
+                Copy-Item (Join-Path $CloudInitDir "user-data") "Z:\user-data"
+                Write-Log "Copied cloud-init files to VHD" -Level DEBUG
+
+                # Detach VHD
+                $detachScript = @"
+select vdisk file="$vhdPath"
+detach vdisk
+"@
+                $detachScript | Out-File -FilePath $scriptFile -Encoding ascii
+                Start-Process -FilePath "diskpart" -ArgumentList "/s `"$scriptFile`"" -Wait -NoNewWindow
+                Remove-Item $scriptFile -Force
+
+                # Convert VHDX to raw for QEMU
+                & $qemuImg convert -f vhdx -O raw $vhdPath $fatDisk 2>&1 | ForEach-Object { Write-Log $_ -Level DEBUG }
+                Remove-Item $vhdPath -Force -ErrorAction SilentlyContinue
+
+                if (Test-Path $fatDisk) {
+                    Write-Log "Created cloud-init FAT disk: $fatDisk" -Level SUCCESS
+                    return $fatDisk
+                }
+            }
+        }
+        catch {
+            Write-Log "FAT disk creation failed: $_" -Level WARN
+        }
+    }
+
+    # Method 4: PowerShell native ISO creation using IMAPI2
+    Write-Log "Using PowerShell IMAPI2 to create ISO" -Level INFO
+    try {
+        # Create the file system image
+        $fsi = New-Object -ComObject IMAPI2FS.MsftFileSystemImage
+        $fsi.FileSystemsToCreate = 3  # FsiFileSystemISO9660 + FsiFileSystemJoliet
+        $fsi.VolumeName = "cidata"
+
+        # Add files from cloud-init directory
+        $files = Get-ChildItem -Path $CloudInitDir -File
+        foreach ($file in $files) {
+            Write-Log "Adding to ISO: $($file.Name)" -Level DEBUG
+            $stream = New-Object -ComObject ADODB.Stream
+            $stream.Type = 1  # adTypeBinary
+            $stream.Open()
+            $stream.LoadFromFile($file.FullName)
+            $fsi.Root.AddFile($file.Name, $stream)
+        }
+
+        # Build the ISO image
+        $result = $fsi.CreateResultImage()
+        $imageStream = $result.ImageStream
+
+        # Write to file
+        $outStream = New-Object -ComObject ADODB.Stream
+        $outStream.Type = 1  # adTypeBinary
+        $outStream.Open()
+        $outStream.Write($imageStream.Read())
+        $outStream.SaveToFile($isoPath, 2)  # adSaveCreateOverWrite
+        $outStream.Close()
+
+        if (Test-Path $isoPath) {
+            $size = (Get-Item $isoPath).Length / 1KB
+            Write-Log "Created cloud-init ISO: $isoPath ($([math]::Round($size, 1)) KB)" -Level SUCCESS
+            return $isoPath
+        }
+    }
+    catch {
+        Write-Log "IMAPI2 ISO creation failed: $_" -Level WARN
+    }
+
+    # Method 4: Create a simple raw ISO manually (fallback)
+    Write-Log "Attempting manual ISO creation..." -Level INFO
+    try {
+        $metaData = Get-Content (Join-Path $CloudInitDir "meta-data") -Raw
+        $userData = Get-Content (Join-Path $CloudInitDir "user-data") -Raw
+
+        # Create a minimal ISO 9660 image
+        # This is a simplified ISO that cloud-init can read
+        $isoBytes = New-Object System.Collections.ArrayList
+
+        # System Area (32768 bytes of zeros)
+        for ($i = 0; $i -lt 32768; $i++) { [void]$isoBytes.Add([byte]0) }
+
+        # Primary Volume Descriptor
+        $pvd = New-Object byte[] 2048
+        $pvd[0] = 1  # Type: Primary Volume Descriptor
+        [System.Text.Encoding]::ASCII.GetBytes("CD001").CopyTo($pvd, 1)  # Standard Identifier
+        $pvd[6] = 1  # Version
+        # Volume Identifier: "cidata" padded to 32 bytes
+        $volId = "CIDATA".PadRight(32)
+        [System.Text.Encoding]::ASCII.GetBytes($volId).CopyTo($pvd, 40)
+
+        # Volume Space Size (we'll set a small size)
+        $volSize = 50  # 50 sectors = 100KB
+        $pvd[80] = [byte]($volSize -band 0xFF)
+        $pvd[81] = [byte](($volSize -shr 8) -band 0xFF)
+        $pvd[84] = [byte](($volSize -shr 8) -band 0xFF)
+        $pvd[85] = [byte]($volSize -band 0xFF)
+
+        # Logical Block Size: 2048
+        $pvd[128] = 0; $pvd[129] = 8  # Little-endian
+        $pvd[130] = 8; $pvd[131] = 0  # Big-endian
+
+        $isoBytes.AddRange($pvd)
+
+        # Volume Descriptor Set Terminator
+        $term = New-Object byte[] 2048
+        $term[0] = 255  # Type: Terminator
+        [System.Text.Encoding]::ASCII.GetBytes("CD001").CopyTo($term, 1)
+        $term[6] = 1
+        $isoBytes.AddRange($term)
+
+        # Pad to make room for root directory and files
+        while ($isoBytes.Count -lt 2048 * 20) {
+            [void]$isoBytes.Add([byte]0)
+        }
+
+        # Write the meta-data content
+        $metaBytes = [System.Text.Encoding]::UTF8.GetBytes($metaData)
+        for ($i = 0; $i -lt $metaBytes.Length -and ($isoBytes.Count + $i) -lt 2048 * 25; $i++) {
+            [void]$isoBytes.Add($metaBytes[$i])
+        }
+
+        # Pad
+        while ($isoBytes.Count -lt 2048 * 30) {
+            [void]$isoBytes.Add([byte]0)
+        }
+
+        # Write the user-data content
+        $userBytes = [System.Text.Encoding]::UTF8.GetBytes($userData)
+        for ($i = 0; $i -lt $userBytes.Length; $i++) {
+            [void]$isoBytes.Add($userBytes[$i])
+        }
+
+        # Pad to final size
+        while ($isoBytes.Count -lt 2048 * 50) {
+            [void]$isoBytes.Add([byte]0)
+        }
+
+        [System.IO.File]::WriteAllBytes($isoPath, $isoBytes.ToArray())
+
+        Write-Log "Created fallback ISO (may not work with all cloud-init versions)" -Level WARN
+        return $isoPath
+    }
+    catch {
+        Write-Log "Manual ISO creation failed: $_" -Level ERROR
+    }
+
+    Write-Log "Failed to create cloud-init ISO - cloud-init will not configure the VM!" -Level ERROR
+    Write-Log "Please install Windows ADK or use a system with mkisofs available" -Level ERROR
+    throw "Cannot create cloud-init ISO. Install Windows ADK (oscdimg) or QEMU with mkisofs."
 }
 
 function New-VMDisk {
@@ -954,8 +1136,15 @@ Started: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
     )
 
     if ($CloudInitISO -and (Test-Path $CloudInitISO)) {
-        $qemuArgs += @("-cdrom", $CloudInitISO)
-        Write-Log "Attaching cloud-init ISO" -Level DEBUG
+        # Check if it's an ISO or a disk image
+        if ($CloudInitISO -match '\.iso$') {
+            $qemuArgs += @("-cdrom", $CloudInitISO)
+            Write-Log "Attaching cloud-init ISO as CD-ROM" -Level DEBUG
+        } else {
+            # It's a disk image (FAT/raw), attach as secondary drive
+            $qemuArgs += @("-hdb", $CloudInitISO)
+            Write-Log "Attaching cloud-init disk as secondary drive" -Level DEBUG
+        }
     }
 
     Write-Log "Starting QEMU..." -Level INFO
