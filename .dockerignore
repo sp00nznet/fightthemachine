@@ -1,0 +1,20 @@
+# Git
+.git
+.gitignore
+
+# Legacy VM scripts (not needed in container)
+*.ps1
+*.iso
+cloud-init-seed/
+
+# Documentation
+*.md
+LICENSE
+
+# IDE
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
