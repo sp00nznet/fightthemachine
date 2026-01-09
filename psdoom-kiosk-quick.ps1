@@ -854,6 +854,22 @@ function New-CloudInitISO {
 
     $isoPath = Join-Path $InstallPath $Config.CloudInitISO
 
+    # Method 0: Use pre-built ISO from script directory (most reliable)
+    $scriptDir = $PSScriptRoot
+    if (-not $scriptDir) { $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path }
+    if (-not $scriptDir) { $scriptDir = Get-Location }
+
+    $prebuiltISO = Join-Path $scriptDir "cloud-init.iso"
+    if (Test-Path $prebuiltISO) {
+        Write-Log "Found pre-built cloud-init ISO: $prebuiltISO" -Level SUCCESS
+        Copy-Item $prebuiltISO $isoPath -Force
+        if (Test-Path $isoPath) {
+            $size = (Get-Item $isoPath).Length
+            Write-Log "Using pre-built cloud-init ISO: $isoPath ($size bytes)" -Level SUCCESS
+            return $isoPath
+        }
+    }
+
     # Method 1: mkisofs from QEMU directory
     $mkisofs = Join-Path $Config.QEMUPath "mkisofs.exe"
     if (Test-Path $mkisofs) {
