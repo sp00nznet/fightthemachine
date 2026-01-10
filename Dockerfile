@@ -13,6 +13,11 @@ ENV VNC_PORT=5900
 ENV NOVNC_PORT=6080
 ENV RESOLUTION=1024x768
 
+# Enable contrib repository for doom-wad-shareware
+RUN echo "deb http://deb.debian.org/debian bookworm main contrib" > /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian bookworm-updates main contrib" >> /etc/apt/sources.list && \
+    echo "deb http://deb.debian.org/debian-security bookworm-security main contrib" >> /etc/apt/sources.list
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools for the game
