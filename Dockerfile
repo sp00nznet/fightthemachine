@@ -70,7 +70,7 @@ RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
     make -C textscreen && \
     make -C opl && \
     make -C pcsound && \
-    make -C src && \
+    make -C src psdoom-ng && \
     cp src/psdoom-ng /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom-ng
 
