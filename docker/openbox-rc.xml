@@ -40,7 +40,7 @@
     <number>1</number>
     <firstdesk>1</firstdesk>
     <names>
-      <name>psDoom</name>
+      <name>Fight the Machine</name>
     </names>
   </desktops>
   <resize>
@@ -53,7 +53,7 @@
     </popupFixedPosition>
   </resize>
   <applications>
-    <!-- Make psdoom fullscreen and undecorated -->
+    <!-- Make the game fullscreen and undecorated -->
     <application name="psdoom" class="*">
       <decor>no</decor>
       <fullscreen>yes</fullscreen>

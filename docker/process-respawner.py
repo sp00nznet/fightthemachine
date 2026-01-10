@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Process Respawner Daemon for psDoom Docker Container
+Process Respawner Daemon for Fight the Machine
 
-Monitors system processes and respawns them when killed by psDoom.
+Monitors system processes and respawns them when killed by the game.
 Processes are classified into DOOM enemy tiers with corresponding respawn delays.
 """
 
@@ -175,7 +175,7 @@ def main():
     logger.info("=" * 50)
     logger.info("Process Respawner Daemon Starting")
     logger.info("=" * 50)
-    logger.info("Monitoring processes for psDoom kills...")
+    logger.info("Monitoring processes for game kills...")
 
     # Initial process snapshot
     known_processes = get_running_processes()
