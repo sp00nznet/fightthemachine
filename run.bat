@@ -15,46 +15,54 @@ echo.
 
 :: Check for Docker
 where docker >nul 2>nul
-if %ERRORLEVEL% neq 0 (
-    echo Docker is not installed.
-    echo.
-    set /p INSTALL_DOCKER="Would you like to download and install Docker Desktop? [Y/n] "
-    if /i "!INSTALL_DOCKER!"=="n" (
-        echo.
-        echo Docker is required to run Fight the Machine.
-        echo Download manually from: https://docs.docker.com/desktop/windows/install/
-        pause
-        exit /b 1
-    )
-    echo.
-    echo Downloading Docker Desktop installer...
-    set "DOCKER_INSTALLER=%TEMP%\DockerDesktopInstaller.exe"
-    powershell -Command "& {[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://desktop.docker.com/win/main/amd64/Docker%%20Desktop%%20Installer.exe' -OutFile '!DOCKER_INSTALLER!' -UseBasicParsing}"
-    if not exist "!DOCKER_INSTALLER!" (
-        echo.
-        echo ERROR: Failed to download Docker Desktop installer.
-        echo Please download manually from: https://docs.docker.com/desktop/windows/install/
-        pause
-        exit /b 1
-    )
-    echo.
-    echo Download complete. Starting Docker Desktop installer...
-    echo Please follow the installation prompts.
-    echo.
-    start /wait "" "!DOCKER_INSTALLER!" install --quiet
-    del "!DOCKER_INSTALLER!" 2>nul
-    echo.
-    echo Docker Desktop installation complete.
-    echo.
-    echo IMPORTANT: You need to:
-    echo   1. Restart your computer (recommended) or log out and back in
-    echo   2. Start Docker Desktop from the Start menu
-    echo   3. Wait for Docker to fully start (icon in system tray)
-    echo   4. Run this script again
-    echo.
-    pause
-    exit /b 0
-)
+if %ERRORLEVEL% neq 0 goto :install_docker
+goto :docker_ok
+
+:install_docker
+echo Docker is not installed.
+echo.
+set /p INSTALL_DOCKER="Would you like to download and install Docker Desktop? [Y/n] "
+if /i "%INSTALL_DOCKER%"=="n" goto :no_docker
+
+echo.
+echo Downloading Docker Desktop installer...
+set "DOCKER_INSTALLER=%TEMP%\DockerDesktopInstaller.exe"
+powershell -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://desktop.docker.com/win/main/amd64/Docker%%20Desktop%%20Installer.exe' -OutFile '%DOCKER_INSTALLER%' -UseBasicParsing"
+if not exist "%DOCKER_INSTALLER%" goto :download_failed
+
+echo.
+echo Download complete. Starting Docker Desktop installer...
+echo Please follow the installation prompts.
+echo.
+start /wait "" "%DOCKER_INSTALLER%" install --quiet
+del "%DOCKER_INSTALLER%" 2>nul
+echo.
+echo Docker Desktop installation complete.
+echo.
+echo IMPORTANT: You need to:
+echo   1. Restart your computer (recommended) or log out and back in
+echo   2. Start Docker Desktop from the Start menu
+echo   3. Wait for Docker to fully start (icon in system tray)
+echo   4. Run this script again
+echo.
+pause
+exit /b 0
+
+:no_docker
+echo.
+echo Docker is required to run Fight the Machine.
+echo Download manually from: https://docs.docker.com/desktop/windows/install/
+pause
+exit /b 1
+
+:download_failed
+echo.
+echo ERROR: Failed to download Docker Desktop installer.
+echo Please download manually from: https://docs.docker.com/desktop/windows/install/
+pause
+exit /b 1
+
+:docker_ok
 
 :: Set default action
 set ACTION=%1
