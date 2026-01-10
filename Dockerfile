@@ -21,11 +21,12 @@ RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /et
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build tools for psdoom-ng
+    # Build tools for psdoom-ng (autotools)
     build-essential \
     git \
     autoconf \
     automake \
+    libtool \
     pkg-config \
     # X11 and display
     xvfb \
@@ -64,6 +65,7 @@ RUN useradd -m -s /bin/bash doom && \
 WORKDIR /home/doom
 RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
     cd psdoom-ng/trunk && \
+    ./autogen.sh && \
     ./configure && \
     make && \
     make install
