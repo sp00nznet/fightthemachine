@@ -53,6 +53,7 @@ RUN useradd -m -s /bin/bash doom && \
 WORKDIR /home/doom
 RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cd psdoom-src && \
+    autoreconf -i && \
     ./configure && \
     make && \
     cp src/psdoom /usr/local/bin/ && \
