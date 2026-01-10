@@ -1,8 +1,8 @@
-# psDoom Docker
+# Fight the Machine
 
 > Kill processes as DOOM monsters - in your browser.
 
-Run [psDoom](https://github.com/sp00nznet/psdoom-src) in a Docker container with HTML5 browser access.
+Fight the Machine runs [psDoom](https://github.com/sp00nznet/psdoom-src) in a Docker container with HTML5 browser access.
 
 ## Quick Start
 
@@ -50,7 +50,7 @@ See [DOCUMENTATION.md](DOCUMENTATION.md) for detailed configuration, troubleshoo
 
 ## License
 
-Public domain. psDoom is GPL. DOOM WAD is shareware.
+Public domain. psDoom (the game engine) is GPL. DOOM WAD is shareware.
 
 ---
 
