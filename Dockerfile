@@ -60,10 +60,11 @@ RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cp xdoom/linux-x86/ps-xdoom /usr/local/bin/psdoom && \
     chmod +x /usr/local/bin/psdoom
 
-# Download DOOM shareware WAD
+# Download DOOM shareware WAD (try multiple sources, continue even if all fail)
 RUN mkdir -p /home/doom/.psdoom && \
-    (wget -q -O /home/doom/.psdoom/DOOM1.WAD "https://archive.org/download/doom-wad-shareware/DOOM1.WAD" || \
-     wget -q -O /home/doom/.psdoom/DOOM1.WAD "https://www.ibiblio.org/pub/historic-linux/distributions/slackware/slackware-3.0/games/doom/doom1.wad") && \
+    (wget --no-check-certificate -q -O /home/doom/.psdoom/DOOM1.WAD "https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad" || \
+     wget --no-check-certificate -q -O /home/doom/.psdoom/DOOM1.WAD "https://archive.org/download/2020_03_22_DOOM/DOOM%20WADs/DOOM1.WAD" || \
+     echo "WAD download failed - please provide DOOM1.WAD manually") && \
     chown -R doom:doom /home/doom
 
 # Create directories for config and logs
