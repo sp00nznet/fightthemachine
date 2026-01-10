@@ -71,6 +71,13 @@ RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
 RUN cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM1.WAD && \
     cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM.WAD
 
+# Download xdoom.wad from psdoom-ng (required for psdoom to work)
+RUN cd /tmp && \
+    wget -q https://github.com/ChrisTitusTech/psdoom-ng/raw/master/extras/psdoom-2000.05.03-data.tar.gz && \
+    tar xzf psdoom-2000.05.03-data.tar.gz && \
+    cp psdoom-2000.05.03-data/xdoom.wad /usr/share/games/doom/ && \
+    rm -rf psdoom-2000.05.03-data psdoom-2000.05.03-data.tar.gz
+
 # Create directories for config and logs
 RUN mkdir -p /var/log/supervisor /var/run
 
