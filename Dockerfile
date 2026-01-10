@@ -67,8 +67,12 @@ RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
     cd psdoom-ng/trunk && \
     ./autogen.sh && \
     ./configure && \
-    make && \
-    make install
+    make -C textscreen && \
+    make -C opl && \
+    make -C pcsound && \
+    make -C src psdoom-ng && \
+    cp src/psdoom-ng /usr/local/bin/ && \
+    chmod +x /usr/local/bin/psdoom-ng
 
 # Setup DOOM WAD - create copies with uppercase names
 RUN cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM1.WAD && \
