@@ -1,5 +1,6 @@
 # Fight the Machine - Docker Container with HTML5 Web Interface
 # Access the game via browser at http://container-ip:6080
+# Uses psdoom-ng (based on stable Chocolate Doom engine)
 
 FROM debian:12-slim
 
@@ -20,9 +21,12 @@ RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /et
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build tools for the game
+    # Build tools for psdoom-ng
     build-essential \
     git \
+    autoconf \
+    automake \
+    pkg-config \
     # X11 and display
     xvfb \
     x11vnc \
@@ -32,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # noVNC for HTML5
     novnc \
     websockify \
-    # Game dependencies
+    # psdoom-ng dependencies (SDL 1.2 based)
     libsdl1.2-dev \
     libsdl-mixer1.2-dev \
     libsdl-net1.2-dev \
@@ -56,21 +60,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd -m -s /bin/bash doom && \
     echo "doom:doom" | chpasswd
 
-# Clone and build psDoom game engine
+# Clone and build psdoom-ng (Chocolate Doom based - stable on modern systems)
 WORKDIR /home/doom
-RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
-    cd psdoom-src/xdoomsrc && \
-    mkdir -p linux-x86 musserv/linux sndserv/linux xdoom/linux-x86 && \
-    make linux-x86 && \
-    cp xdoom/linux-x86/ps-xdoom /usr/local/bin/psdoom && \
-    chmod +x /usr/local/bin/psdoom
+RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
+    cd psdoom-ng/trunk && \
+    ./configure && \
+    make && \
+    make install
 
-# Setup DOOM WAD - create copies with names psdoom might recognize
+# Setup DOOM WAD - create copies with uppercase names
 RUN cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM1.WAD && \
     cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM.WAD
 
-# Copy psdoom WAD files (xdoom.wad, psdoom1.wad, psdoom2.wad)
-COPY wad/*.wad /usr/share/games/doom/
+# Copy psdoom WAD files (psdoom1.wad, psdoom2.wad for process levels)
+COPY wad/psdoom1.wad wad/psdoom2.wad /usr/share/games/doom/
 
 # Create directories for config and logs
 RUN mkdir -p /var/log/supervisor /var/run

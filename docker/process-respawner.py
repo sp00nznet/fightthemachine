@@ -47,7 +47,9 @@ PROCESS_TIERS = {
 # Processes that should NEVER be respawned
 BLACKLIST = {
     'psdoom',
+    'psdoom-ng',
     'doom',
+    'chocolate-doom',
     'start-psdoom',
     'supervisord',
     'python3 /usr/local/bin/process-respawner.py',
