@@ -57,7 +57,7 @@ RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cd psdoom-src/xdoomsrc && \
     mkdir -p linux-x86 musserv/linux sndserv/linux xdoom/linux-x86 && \
     make linux-x86 && \
-    cp linux-x86/psdoom /usr/local/bin/ && \
+    cp xdoom/linux-x86/ps-xdoom /usr/local/bin/psdoom && \
     chmod +x /usr/local/bin/psdoom
 
 # Download DOOM shareware WAD
