@@ -1,6 +1,6 @@
 #!/bin/bash
-# psDoom Docker - Quick Start Script
-# Run this script to build and start psDoom in a Docker container
+# Fight the Machine - Quick Start Script
+# Run this script to build and start Fight the Machine in a Docker container
 
 set -e
 
@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}"
 echo "╔═══════════════════════════════════════════════════════════╗"
-echo "║           psDoom - Docker HTML5 Edition                   ║"
+echo "║              Fight the Machine                            ║"
 echo "║     Kill processes as DOOM monsters in your browser!      ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
@@ -44,11 +44,11 @@ ACTION="${1:-start}"
 
 case "$ACTION" in
     start|up)
-        echo -e "${YELLOW}Building and starting psDoom container...${NC}"
+        echo -e "${YELLOW}Building and starting Fight the Machine container...${NC}"
         $COMPOSE_CMD up -d --build
 
         echo ""
-        echo -e "${GREEN}psDoom is starting up!${NC}"
+        echo -e "${GREEN}Fight the Machine is starting up!${NC}"
         echo ""
         echo "Access the game in your browser at:"
         echo -e "  ${GREEN}http://localhost:6080${NC}"
@@ -63,19 +63,19 @@ case "$ACTION" in
         ;;
 
     stop|down)
-        echo -e "${YELLOW}Stopping psDoom container...${NC}"
+        echo -e "${YELLOW}Stopping container...${NC}"
         $COMPOSE_CMD down
         echo -e "${GREEN}Container stopped.${NC}"
         ;;
 
     restart)
-        echo -e "${YELLOW}Restarting psDoom container...${NC}"
+        echo -e "${YELLOW}Restarting container...${NC}"
         $COMPOSE_CMD restart
         echo -e "${GREEN}Container restarted.${NC}"
         ;;
 
     logs)
-        echo -e "${YELLOW}Showing psDoom container logs (Ctrl+C to exit)...${NC}"
+        echo -e "${YELLOW}Showing container logs (Ctrl+C to exit)...${NC}"
         $COMPOSE_CMD logs -f
         ;;
 
@@ -85,14 +85,14 @@ case "$ACTION" in
         ;;
 
     build)
-        echo -e "${YELLOW}Building psDoom container...${NC}"
+        echo -e "${YELLOW}Building container...${NC}"
         $COMPOSE_CMD build --no-cache
         echo -e "${GREEN}Build complete.${NC}"
         ;;
 
     shell)
-        echo -e "${YELLOW}Opening shell in psDoom container...${NC}"
-        docker exec -it psdoom /bin/bash
+        echo -e "${YELLOW}Opening shell in container...${NC}"
+        docker exec -it fightthemachine /bin/bash
         ;;
 
     *)

@@ -1,5 +1,8 @@
 # Legacy VM Scripts (Archived)
 
+> **Note:** These legacy scripts use the original "psDoom Kiosk" naming convention.
+> The project has been renamed to **Fight the Machine** - see the main Docker implementation.
+
 These scripts are from the original QEMU-based VM approach and have been superseded by the Docker implementation.
 
 ## Files

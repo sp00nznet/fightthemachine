@@ -1,10 +1,10 @@
-# psDoom Docker Container with HTML5 Web Interface
+# Fight the Machine - Docker Container with HTML5 Web Interface
 # Access the game via browser at http://container-ip:6080
 
 FROM debian:12-slim
 
-LABEL maintainer="psDoom Kiosk Project"
-LABEL description="psDoom - Kill processes as DOOM monsters via HTML5 browser interface"
+LABEL maintainer="Fight the Machine Project"
+LABEL description="Fight the Machine - Kill processes as DOOM monsters via HTML5 browser interface"
 
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -15,7 +15,7 @@ ENV RESOLUTION=1024x768
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Build tools for psdoom
+    # Build tools for the game
     build-essential \
     git \
     autoconf \
@@ -27,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # noVNC for HTML5
     novnc \
     websockify \
-    # psdoom dependencies
+    # Game dependencies
     libsdl1.2-dev \
     libsdl-mixer1.2-dev \
     libsdl-net1.2-dev \
@@ -45,11 +45,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Create psdoom user
+# Create game user
 RUN useradd -m -s /bin/bash doom && \
     echo "doom:doom" | chpasswd
 
-# Clone and build psdoom
+# Clone and build psDoom game engine
 WORKDIR /home/doom
 RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cd psdoom-src && \

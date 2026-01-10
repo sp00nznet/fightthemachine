@@ -1,12 +1,13 @@
+# Fight the Machine - Docker Compose Configuration
 version: '3.8'
 
 services:
-  psdoom:
+  fightthemachine:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: psdoom
-    hostname: psdoom
+    container_name: fightthemachine
+    hostname: fightthemachine
     restart: unless-stopped
 
     # Port mappings
@@ -31,7 +32,7 @@ services:
           cpus: '0.5'
           memory: 256M
 
-    # Security options - psdoom needs to see/manage processes
+    # Security options - game needs to see/manage processes
     cap_add:
       - SYS_PTRACE
     security_opt:
@@ -48,5 +49,5 @@ services:
 # Optional: Create a dedicated network
 networks:
   default:
-    name: psdoom-network
+    name: fightthemachine-network
     driver: bridge
