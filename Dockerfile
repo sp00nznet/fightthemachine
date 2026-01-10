@@ -24,6 +24,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     x11vnc \
     openbox \
+    libx11-dev \
+    libxext-dev \
     # noVNC for HTML5
     novnc \
     websockify \
@@ -52,11 +54,9 @@ RUN useradd -m -s /bin/bash doom && \
 # Clone and build psDoom game engine
 WORKDIR /home/doom
 RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
-    cd psdoom-src && \
-    autoreconf -i && \
-    ./configure && \
-    make && \
-    cp src/psdoom /usr/local/bin/ && \
+    cd psdoom-src/xdoomsrc && \
+    make linux-x86 && \
+    cp linux-x86/psdoom /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom
 
 # Download DOOM shareware WAD
