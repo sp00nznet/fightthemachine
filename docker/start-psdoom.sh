@@ -1,13 +1,17 @@
 #!/bin/bash
-# Start Fight the Machine (psDoom game engine)
+# Start Fight the Machine (psdoom-ng game engine)
 
 # Wait for X server and window manager to be ready
 sleep 5
 
-# Change to game directory
-cd /home/doom/.psdoom
+# Export environment for process killing
+export PSDOOMKILLCMD="/bin/kill -9"
 
-# Start the game with proper settings
-# -iwad: specify the WAD file location
-# -fullscreen: run in fullscreen mode
-exec /usr/local/bin/psdoom -iwad /home/doom/.psdoom/DOOM1.WAD -fullscreen
+# Start psdoom-ng with proper settings
+# -iwad: specify the base DOOM WAD file
+# -file: load psdoom process WAD addon
+# -window: run in windowed mode for VNC
+exec /usr/local/bin/psdoom-ng \
+    -iwad /usr/share/games/doom/doom1.wad \
+    -file /usr/share/games/doom/psdoom1.wad \
+    -window
