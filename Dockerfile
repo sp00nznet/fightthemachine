@@ -89,6 +89,9 @@ RUN chmod +x /usr/local/bin/start-psdoom.sh \
 RUN mkdir -p /home/doom/.config/openbox && \
     chown -R doom:doom /home/doom/.config
 
+# Create index.html redirect for noVNC
+RUN echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=vnc.html?autoconnect=true&resize=scale"></head></html>' > /usr/share/novnc/index.html
+
 # Expose ports
 # 5900 - VNC (optional direct access)
 # 6080 - noVNC HTML5 interface
