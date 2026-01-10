@@ -1,4 +1,4 @@
-# psDoom Docker - Documentation
+# Fight the Machine - Documentation
 
 ## Architecture
 
@@ -25,7 +25,7 @@
 
 **Components:**
 1. **Xvfb** - Virtual X11 framebuffer
-2. **psDoom** - The game running on the virtual display
+2. **psDoom** - The game engine running on the virtual display
 3. **x11vnc** - Captures display as VNC stream
 4. **noVNC** - Converts VNC to HTML5 WebSocket
 5. **Process Respawner** - Brings back killed processes
@@ -47,14 +47,14 @@
 ```yaml
 # docker-compose.yml
 services:
-  psdoom:
+  fightthemachine:
     environment:
       - RESOLUTION=1920x1080
 ```
 
 Or via command line:
 ```bash
-docker run -e RESOLUTION=1920x1080 -p 6080:6080 psdoom
+docker run -e RESOLUTION=1920x1080 -p 6080:6080 fightthemachine
 ```
 
 ### Resource Limits
@@ -88,7 +88,7 @@ Killed processes respawn after a delay based on their "enemy tier":
 
 **View logs:**
 ```bash
-docker exec psdoom tail -f /var/log/process-respawner.log
+docker exec fightthemachine tail -f /var/log/process-respawner.log
 ```
 
 ---
@@ -97,15 +97,15 @@ docker exec psdoom tail -f /var/log/process-respawner.log
 
 ```bash
 # Build image
-docker build -t psdoom .
+docker build -t fightthemachine .
 
 # Run without compose
 docker run -d \
-  --name psdoom \
+  --name fightthemachine \
   -p 6080:6080 \
   -p 5900:5900 \
   --cap-add SYS_PTRACE \
-  psdoom
+  fightthemachine
 ```
 
 ---
@@ -121,21 +121,21 @@ docker run -d \
 
 ### Black screen in browser
 
-1. Check Xvfb: `docker exec psdoom pgrep Xvfb`
-2. Check psDoom logs: `docker exec psdoom cat /var/log/supervisor/psdoom.log`
+1. Check Xvfb: `docker exec fightthemachine pgrep Xvfb`
+2. Check game logs: `docker exec fightthemachine cat /var/log/supervisor/psdoom.log`
 3. Rebuild: `./run.sh build && ./run.sh start`
 
-### psDoom crashes
+### Game crashes
 
-1. Check error log: `docker exec psdoom cat /var/log/supervisor/psdoom.err`
-2. Verify WAD file: `docker exec psdoom ls -la /home/doom/.psdoom/`
-3. Run manually: `docker exec -it psdoom /usr/local/bin/psdoom -iwad /home/doom/.psdoom/DOOM1.WAD`
+1. Check error log: `docker exec fightthemachine cat /var/log/supervisor/psdoom.err`
+2. Verify WAD file: `docker exec fightthemachine ls -la /home/doom/.psdoom/`
+3. Run manually: `docker exec -it fightthemachine /usr/local/bin/psdoom -iwad /home/doom/.psdoom/DOOM1.WAD`
 
 ### VNC client won't connect
 
 VNC is passwordless by default. To set a password:
 ```bash
-docker exec psdoom x11vnc -storepasswd yourpassword /tmp/vncpass
+docker exec fightthemachine x11vnc -storepasswd yourpassword /tmp/vncpass
 ```
 
 ---
@@ -162,9 +162,9 @@ fightthemachine/
 
 ---
 
-## How psDoom Works
+## How It Works
 
-psDoom maps running processes to DOOM monsters:
+Fight the Machine uses psDoom to map running processes to DOOM monsters:
 
 - **Zombieman** = Trivial processes (cat, sleep)
 - **Imp** = User apps (vim, python)
