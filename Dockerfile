@@ -41,6 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     curl \
     ca-certificates \
+    # DOOM shareware WAD
+    doom-wad-shareware \
     # Clean up
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -58,10 +60,9 @@ RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cp xdoom/linux-x86/ps-xdoom /usr/local/bin/psdoom && \
     chmod +x /usr/local/bin/psdoom
 
-# Download DOOM shareware WAD
+# Link DOOM shareware WAD from apt package
 RUN mkdir -p /home/doom/.psdoom && \
-    (wget -q -O /home/doom/.psdoom/DOOM1.WAD "https://archive.org/download/doom-wad-shareware/DOOM1.WAD" || \
-     wget -q -O /home/doom/.psdoom/DOOM1.WAD "https://www.ibiblio.org/pub/historic-linux/distributions/slackware/slackware-3.0/games/doom/doom1.wad") && \
+    ln -s /usr/share/games/doom/doom1.wad /home/doom/.psdoom/DOOM1.WAD && \
     chown -R doom:doom /home/doom
 
 # Create directories for config and logs
