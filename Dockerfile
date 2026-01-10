@@ -53,6 +53,7 @@ RUN useradd -m -s /bin/bash doom && \
 WORKDIR /home/doom
 RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     cd psdoom-src/xdoomsrc && \
+    mkdir -p linux-x86 musserv/linux sndserv/linux && \
     make linux-x86 && \
     cp linux-x86/psdoom /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom
