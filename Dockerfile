@@ -18,8 +18,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools for the game
     build-essential \
     git \
-    autoconf \
-    automake \
     # X11 and display
     xvfb \
     x11vnc \
