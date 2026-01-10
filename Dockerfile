@@ -63,7 +63,8 @@ RUN git clone https://github.com/sp00nznet/psdoom-src.git && \
     mkdir -p linux-x86 musserv/linux sndserv/linux xdoom/linux-x86 && \
     make linux-x86 && \
     cp xdoom/linux-x86/ps-xdoom /usr/local/bin/psdoom && \
-    chmod +x /usr/local/bin/psdoom
+    chmod +x /usr/local/bin/psdoom && \
+    cp /home/doom/psdoom-src/xdoomsrc/xdoom/xdoom.wad /usr/share/games/doom/
 
 # Link DOOM shareware WAD from apt package
 RUN mkdir -p /home/doom/.psdoom && \
