@@ -62,15 +62,13 @@ RUN useradd -m -s /bin/bash doom && \
     echo "doom:doom" | chpasswd
 
 # Clone and build psdoom-ng (Chocolate Doom based - stable on modern systems)
+# The make will fail on desktop file generation but binary is created before that
 WORKDIR /home/doom
 RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
     cd psdoom-ng/trunk && \
     ./autogen.sh && \
     ./configure && \
-    make -C textscreen && \
-    make -C opl && \
-    make -C pcsound && \
-    make -C src psdoom-ng && \
+    (make || true) && \
     cp src/psdoom-ng /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom-ng
 
