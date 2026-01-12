@@ -64,7 +64,14 @@ RUN useradd -m -s /bin/bash doom && \
 # Clone and build psdoom-ng (Chocolate Doom based - stable on modern systems)
 # The make will fail on desktop file generation but binary is created before that
 WORKDIR /home/doom
+
+# Copy patch script for sudo cheat code
+COPY patches/add-sudo-cheat.sh /tmp/add-sudo-cheat.sh
+RUN chmod +x /tmp/add-sudo-cheat.sh
+
 RUN git clone https://github.com/orsonteodoro/psdoom-ng.git && \
+    # Apply sudo cheat code patch (combines IDDQD + IDKFA)
+    /tmp/add-sudo-cheat.sh /home/doom/psdoom-ng/trunk/src/doom/st_stuff.c && \
     cd psdoom-ng/trunk && \
     ./autogen.sh && \
     ./configure && \
