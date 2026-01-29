@@ -19,8 +19,8 @@ variables:
 build:docker:
   stage: build
   tags:
-    - docker
     - linux
+    - debian
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -98,8 +98,8 @@ build:win32:
 test:docker:
   stage: test
   tags:
-    - docker
     - linux
+    - debian
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -140,8 +140,8 @@ test:docker:
 package:release:
   stage: package
   tags:
-    - docker
     - linux
+    - debian
   image: alpine:latest
   script:
     - echo "Creating release package..."
@@ -194,8 +194,8 @@ package:release:
 deploy:docker-hub:
   stage: deploy
   tags:
-    - docker
     - linux
+    - debian
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -224,8 +224,8 @@ deploy:docker-hub:
 sync:github:
   stage: deploy
   tags:
-    - docker
     - linux
+    - debian
   image: alpine/git:latest
   variables:
     GIT_STRATEGY: clone
