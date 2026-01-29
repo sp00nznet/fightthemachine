@@ -282,8 +282,12 @@ build:win32-native:
   script:
     - |
       if ($env:MSYS2_PATH) {
+        $env:MSYSTEM = "MINGW64"
+        $env:CHERE_INVOKING = "1"
         $bash = "$env:MSYS2_PATH\usr\bin\bash.exe"
-        & $bash -lc "cd /c/$(($env:CI_PROJECT_DIR -replace '\\','/') -replace 'C:','')/native && ./build-msys2.sh"
+        $projectPath = ($env:CI_PROJECT_DIR -replace '\\','/') -replace '^([A-Za-z]):','/$1'.ToLower()
+        # Use mingw64 shell by setting MSYSTEM before invoking bash
+        & $bash --login -c "export MSYSTEM=MINGW64 && source /etc/profile && cd $projectPath/native && ./build-msys2.sh"
       }
   artifacts:
     name: "fightthemachine-native-$CI_COMMIT_SHORT_SHA"

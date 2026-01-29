@@ -46,12 +46,29 @@ echo "Fight the Machine - Native Windows Build"
 echo "=========================================="
 echo ""
 
-# Check for MSYS2 MINGW64 environment
+# Set up MINGW64 environment if not already set
 if [[ -z "$MSYSTEM" ]] || [[ "$MSYSTEM" != "MINGW64" ]]; then
-    echo "WARNING: Not running in MSYS2 MINGW64 environment"
-    echo "For best results, run this script from MSYS2 MINGW64 terminal"
-    echo ""
+    echo "Setting up MINGW64 environment..."
+    export MSYSTEM=MINGW64
+    # Add MINGW64 bin directories to PATH
+    if [[ -d "/mingw64/bin" ]]; then
+        export PATH="/mingw64/bin:$PATH"
+    elif [[ -d "/c/tools/msys64/mingw64/bin" ]]; then
+        export PATH="/c/tools/msys64/mingw64/bin:$PATH"
+    elif [[ -d "/c/msys64/mingw64/bin" ]]; then
+        export PATH="/c/msys64/mingw64/bin:$PATH"
+    fi
 fi
+
+# Verify cmake is available
+if ! command -v cmake &> /dev/null; then
+    echo "ERROR: cmake not found in PATH"
+    echo "Please install: pacman -S mingw-w64-x86_64-cmake"
+    echo "Current PATH: $PATH"
+    exit 1
+fi
+
+echo "Using cmake: $(which cmake)"
 
 # Clean if requested
 if [[ $CLEAN -eq 1 ]]; then
