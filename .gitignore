@@ -1,0 +1,40 @@
+# Build outputs
+win32/build/
+*.exe
+*.dll
+*.obj
+*.o
+*.a
+*.lib
+*.pdb
+
+# IDE files
+.vs/
+.vscode/
+*.suo
+*.user
+*.sln.docstates
+.idea/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Logs
+*.log
+build.log
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Docker
+.docker/
+
+# Temporary files
+*.tmp
+*.temp
+*~
