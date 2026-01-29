@@ -7,6 +7,9 @@
 *.iso
 cloud-init-seed/
 
+# Win32 native client (not needed in container)
+win32/
+
 # Documentation
 *.md
 LICENSE

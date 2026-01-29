@@ -33,6 +33,8 @@ Fight the Machine runs [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) in
 run.bat
 ```
 
+**Windows (Native App):** Build and run the [Win32 client](win32/) for a native desktop experience.
+
 Then open **http://localhost:6080** in your browser.
 
 ---
@@ -110,6 +112,26 @@ The `sudo` cheat is a Fight the Machine exclusive - because in Unix, `sudo` give
 |------|-------------|
 | `6080` | HTML5 web interface (noVNC) |
 | `5900` | VNC direct access (optional) |
+
+---
+
+## Win32 Native Client
+
+A native Windows desktop application is available in the `win32/` directory. It embeds WebView2 and manages the Docker container automatically.
+
+```batch
+cd win32
+build.bat release
+```
+
+See [win32/README.md](win32/README.md) for build instructions.
+
+---
+
+## Repositories
+
+- **GitHub:** https://github.com/sp00nznet/fightthemachine
+- **GitLab:** https://buildforever.cloud/sp00nz/fightthemachine
 
 ---
 

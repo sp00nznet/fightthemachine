@@ -1,0 +1,17 @@
+PLACEHOLDER: app.ico
+
+This file should be replaced with an actual Windows icon file (.ico format).
+
+To create the icon:
+1. Use an image editor to create a 256x256 PNG image
+2. Convert to ICO format using tools like:
+   - ImageMagick: magick convert image.png -define icon:auto-resize=256,128,64,48,32,16 app.ico
+   - Online converters: https://convertio.co/png-ico/
+   - GIMP: Export as .ico with multiple sizes
+
+Suggested icon design:
+- DOOM-style demon face
+- Red/orange color scheme
+- "FTM" text overlay
+
+Until a real icon is provided, the build will use a default Windows icon.
