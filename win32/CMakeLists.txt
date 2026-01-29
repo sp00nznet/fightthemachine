@@ -36,6 +36,13 @@ set(SOURCES
 # Create executable
 add_executable(fightthemachine WIN32 ${SOURCES})
 
+# Use our custom manifest
+if(MSVC)
+    set_target_properties(fightthemachine PROPERTIES
+        LINK_FLAGS "/MANIFEST:EMBED /MANIFESTINPUT:\"${CMAKE_CURRENT_SOURCE_DIR}/app.manifest\""
+    )
+endif()
+
 # Include directories
 target_include_directories(fightthemachine PRIVATE
     ${webview2_SOURCE_DIR}/build/native/include
