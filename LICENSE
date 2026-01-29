@@ -1,0 +1,39 @@
+Fight the Machine - License Information
+========================================
+
+This project consists of multiple components with different licenses:
+
+1. FIGHT THE MACHINE WRAPPER/CONTAINER CODE
+   License: Public Domain / Unlicense
+
+   This is free and unencumbered software released into the public domain.
+   Anyone is free to copy, modify, publish, use, compile, sell, or
+   distribute this software, either in source code form or as a compiled
+   binary, for any purpose, commercial or non-commercial, and by any means.
+
+2. PSDOOM-NG GAME ENGINE
+   License: GNU General Public License v2.0 (GPL-2.0)
+   Repository: https://github.com/orsonteodoro/psdoom-ng
+
+   Based on Chocolate Doom, which is also GPL-2.0 licensed.
+   See: https://www.chocolate-doom.org/
+
+3. DOOM SHAREWARE WAD
+   License: Shareware (id Software)
+
+   The DOOM shareware WAD file is freely distributable but remains
+   the property of id Software. Commercial use requires a license
+   from id Software / ZeniMax Media / Microsoft.
+
+4. NOVNC
+   License: MPL-2.0 (Mozilla Public License 2.0)
+   Repository: https://github.com/novnc/noVNC
+
+5. X11VNC
+   License: GPL-2.0
+
+For the full text of the GPL-2.0 license, see:
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
+
+For the full text of the MPL-2.0 license, see:
+https://www.mozilla.org/en-US/MPL/2.0/
