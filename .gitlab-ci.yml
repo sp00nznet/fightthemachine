@@ -12,18 +12,15 @@ variables:
   DOCKER_TAG: $CI_COMMIT_SHORT_SHA
   WIN32_ARTIFACT_NAME: fightthemachine-win32
 
-# Cache for faster builds
-cache:
-  key: ${CI_COMMIT_REF_SLUG}
-  paths:
-    - win32/build/
-
 # =============================================================================
-# Docker Image Build
+# Docker Image Build (Linux runner with Docker)
 # =============================================================================
 
 build:docker:
   stage: build
+  tags:
+    - docker
+    - linux
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -47,7 +44,7 @@ build:docker:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
-# Win32 Native Client Build
+# Win32 Native Client Build (Windows runner)
 # =============================================================================
 
 build:win32:
@@ -57,6 +54,10 @@ build:win32:
     - shell
   variables:
     CMAKE_BUILD_TYPE: Release
+  cache:
+    key: win32-${CI_COMMIT_REF_SLUG}
+    paths:
+      - win32/build/_deps/
   before_script:
     # Try to load Visual Studio environment (ignore errors if not found)
     - |
@@ -91,11 +92,14 @@ build:win32:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
-# Tests
+# Tests (Linux runner with Docker)
 # =============================================================================
 
 test:docker:
   stage: test
+  tags:
+    - docker
+    - linux
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -130,11 +134,14 @@ test:docker:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
-# Package Release
+# Package Release (Linux runner)
 # =============================================================================
 
 package:release:
   stage: package
+  tags:
+    - docker
+    - linux
   image: alpine:latest
   script:
     - echo "Creating release package..."
@@ -181,11 +188,14 @@ package:release:
     - if: $CI_COMMIT_BRANCH == "main"
 
 # =============================================================================
-# Deploy to Registry
+# Deploy to Docker Hub (Linux runner)
 # =============================================================================
 
 deploy:docker-hub:
   stage: deploy
+  tags:
+    - docker
+    - linux
   image: docker:24-dind
   services:
     - docker:24-dind
@@ -208,11 +218,14 @@ deploy:docker-hub:
   allow_failure: true
 
 # =============================================================================
-# GitHub Mirror Sync
+# GitHub Mirror Sync (Linux runner)
 # =============================================================================
 
 sync:github:
   stage: deploy
+  tags:
+    - docker
+    - linux
   image: alpine/git:latest
   variables:
     GIT_STRATEGY: clone
