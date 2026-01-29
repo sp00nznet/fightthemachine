@@ -53,16 +53,12 @@ build:qemu-vm:
   tags:
     - linux
     - debian
-  image: docker:24-dind
-  services:
-    - docker:24-dind
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_BUILDKIT: "1"
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Install QEMU tools
-    - apk add --no-cache qemu-img qemu-system-x86_64 e2fsprogs
+    # Install QEMU tools (Debian)
+    - sudo apt-get update && sudo apt-get install -y qemu-utils qemu-system-x86 e2fsprogs
   script:
     - cd qemu
     - chmod +x build-vm-image.sh
