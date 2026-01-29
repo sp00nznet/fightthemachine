@@ -284,8 +284,8 @@ build:win32-native:
         $env:CHERE_INVOKING = "1"
         $bash = "$env:MSYS2_PATH\usr\bin\bash.exe"
         $projectPath = ($env:CI_PROJECT_DIR -replace '\\','/') -replace '^([A-Za-z]):','/$1'.ToLower()
-        # Install required MSYS2 packages (cmake, gcc, make)
-        & $bash --login -c "pacman -S --noconfirm --needed mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc make"
+        # Install required MSYS2 packages (cmake, gcc, make) - use --overwrite for existing files
+        & $bash --login -c "pacman -S --noconfirm --needed --overwrite '*' mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc make"
         # Build using MINGW64 environment
         & $bash --login -c "export MSYSTEM=MINGW64 && source /etc/profile && cd $projectPath/native && ./build-msys2.sh"
       }

@@ -81,10 +81,13 @@ RUN chmod +x /tmp/add-sudo-cheat.sh && \
     cp src/psdoom-ng /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom-ng
 
-# Copy WAD files
+# Copy psDoom WAD files and download DOOM shareware WAD
 RUN mkdir -p /usr/share/games/doom
-COPY wad/doom1.wad wad/psdoom1.wad wad/psdoom2.wad /usr/share/games/doom/
-RUN cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM1.WAD && \
+COPY wad/psdoom1.wad wad/psdoom2.wad /usr/share/games/doom/
+# Download DOOM shareware WAD (freely distributable)
+RUN curl -fsSL -o /usr/share/games/doom/doom1.wad \
+    "https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad" && \
+    cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM1.WAD && \
     cp /usr/share/games/doom/doom1.wad /usr/share/games/doom/DOOM.WAD
 
 # Clean up build dependencies to reduce size
