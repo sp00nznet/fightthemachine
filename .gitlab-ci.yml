@@ -14,7 +14,7 @@ variables:
   QEMU_VERSION: "8.2.0"
 
 # =============================================================================
-# Docker Image Build (Linux runner with Docker)
+# Docker Image Build (Linux runner with Docker - uses host Docker, not dind)
 # =============================================================================
 
 build:docker:
@@ -22,24 +22,22 @@ build:docker:
   tags:
     - linux
     - debian
-  image: docker:24-dind
-  services:
-    - docker:24-dind
+  # Use shell executor to access host's Docker daemon directly (900GB storage)
+  # This avoids dind storage limitations that cause "No space left on device"
   variables:
-    DOCKER_TLS_CERTDIR: "/certs"
     DOCKER_BUILDKIT: "1"
   before_script:
     # Clean up to free disk space
-    - docker system prune -af --volumes || true
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - sudo docker system prune -af --volumes || docker system prune -af --volumes || true
+    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     # Use BuildKit for better caching and smaller images
-    - docker build --no-cache -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest .
-    - docker push $DOCKER_IMAGE:$DOCKER_TAG
-    - docker push $DOCKER_IMAGE:latest
+    - sudo docker build --no-cache -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest . || docker build --no-cache -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest .
+    - sudo docker push $DOCKER_IMAGE:$DOCKER_TAG || docker push $DOCKER_IMAGE:$DOCKER_TAG
+    - sudo docker push $DOCKER_IMAGE:latest || docker push $DOCKER_IMAGE:latest
   after_script:
     # Clean up after build
-    - docker system prune -af || true
+    - sudo docker system prune -af || docker system prune -af || true
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
@@ -302,7 +300,7 @@ build:win32-native:
   allow_failure: true  # MSYS2 may not be installed on all runners
 
 # =============================================================================
-# Tests (Linux runner with Docker)
+# Tests (Linux runner with Docker - uses host Docker)
 # =============================================================================
 
 test:docker:
@@ -310,20 +308,17 @@ test:docker:
   tags:
     - linux
     - debian
-  image: docker:24-dind
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+  # Use shell executor with host Docker daemon
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
   script:
     # Start the container (use --privileged if needed for sysctl access)
-    - docker run -d --name test-ftm -p 6080:6080 --security-opt seccomp=unconfined $DOCKER_IMAGE:$DOCKER_TAG
+    - sudo docker run -d --name test-ftm-$CI_JOB_ID -p 6080:6080 --security-opt seccomp=unconfined $DOCKER_IMAGE:$DOCKER_TAG || docker run -d --name test-ftm-$CI_JOB_ID -p 6080:6080 --security-opt seccomp=unconfined $DOCKER_IMAGE:$DOCKER_TAG
     # Wait for health check
     - |
       for i in $(seq 1 60); do
-        if docker inspect --format='{{.State.Health.Status}}' test-ftm 2>/dev/null | grep -q healthy; then
+        status=$(sudo docker inspect --format='{{.State.Health.Status}}' test-ftm-$CI_JOB_ID 2>/dev/null || docker inspect --format='{{.State.Health.Status}}' test-ftm-$CI_JOB_ID 2>/dev/null)
+        if echo "$status" | grep -q healthy; then
           echo "Container is healthy"
           break
         fi
@@ -331,12 +326,11 @@ test:docker:
         sleep 5
       done
     # Check noVNC is responding
-    - apk add --no-cache curl
     - curl -f http://localhost:6080/ || exit 1
     - echo "noVNC is responding correctly"
   after_script:
-    - docker stop test-ftm || true
-    - docker rm test-ftm || true
+    - sudo docker stop test-ftm-$CI_JOB_ID || docker stop test-ftm-$CI_JOB_ID || true
+    - sudo docker rm test-ftm-$CI_JOB_ID || docker rm test-ftm-$CI_JOB_ID || true
   needs:
     - build:docker
   rules:
@@ -440,7 +434,7 @@ deploy:win32:
     - if: $CI_COMMIT_BRANCH == "main"
 
 # =============================================================================
-# Deploy to Docker Hub (Linux runner)
+# Deploy to Docker Hub (Linux runner - uses host Docker)
 # =============================================================================
 
 deploy:docker-hub:
@@ -448,20 +442,16 @@ deploy:docker-hub:
   tags:
     - linux
     - debian
-  image: docker:24-dind
-  services:
-    - docker:24-dind
-  variables:
-    DOCKER_TLS_CERTDIR: "/certs"
+  # Use shell executor with host Docker daemon
   before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN
+    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - sudo docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN || docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN
   script:
-    - docker pull $DOCKER_IMAGE:$DOCKER_TAG
-    - docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:$DOCKER_TAG
-    - docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:latest
-    - docker push sp00nznet/fightthemachine:$DOCKER_TAG
-    - docker push sp00nznet/fightthemachine:latest
+    - sudo docker pull $DOCKER_IMAGE:$DOCKER_TAG || docker pull $DOCKER_IMAGE:$DOCKER_TAG
+    - sudo docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:$DOCKER_TAG || docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:$DOCKER_TAG
+    - sudo docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:latest || docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:latest
+    - sudo docker push sp00nznet/fightthemachine:$DOCKER_TAG || docker push sp00nznet/fightthemachine:$DOCKER_TAG
+    - sudo docker push sp00nznet/fightthemachine:latest || docker push sp00nznet/fightthemachine:latest
   needs:
     - test:docker
   rules:
