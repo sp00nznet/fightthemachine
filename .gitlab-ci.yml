@@ -57,8 +57,10 @@ build:qemu-vm:
     DOCKER_BUILDKIT: "1"
   before_script:
     - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Install QEMU tools (Debian)
-    - sudo apt-get update && sudo apt-get install -y qemu-utils qemu-system-x86 e2fsprogs
+    # Install only qemu-img (for disk image creation) - not full qemu-system
+    - sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qemu-utils e2fsprogs || true
+    # Verify qemu-img is available
+    - which qemu-img || (echo "qemu-img not found" && exit 1)
   script:
     - cd qemu
     - chmod +x build-vm-image.sh
