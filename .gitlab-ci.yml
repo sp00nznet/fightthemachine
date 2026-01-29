@@ -59,17 +59,35 @@ build:win32:
     paths:
       - win32/build/_deps/
   before_script:
-    # Try to load Visual Studio environment (ignore errors if not found)
+    # Find and add CMake to PATH
+    - |
+      $cmakePaths = @(
+        "C:\Program Files\CMake\bin",
+        "C:\Program Files (x86)\CMake\bin",
+        "${env:ProgramFiles}\CMake\bin",
+        "${env:ProgramFiles(x86)}\CMake\bin"
+      )
+      foreach ($p in $cmakePaths) {
+        if (Test-Path "$p\cmake.exe") {
+          $env:PATH = "$p;$env:PATH"
+          Write-Host "Found CMake at: $p"
+          break
+        }
+      }
+    # Try to load Visual Studio environment
     - |
       try {
         $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath 2>$null
         if ($vsPath) {
           Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
           Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=amd64"
+          Write-Host "Visual Studio environment loaded from: $vsPath"
         }
       } catch {
         Write-Host "Visual Studio DevShell not loaded, continuing anyway..."
       }
+    # Verify cmake is available
+    - cmake --version
   script:
     - Set-Location "$env:CI_PROJECT_DIR\win32"
     - |
