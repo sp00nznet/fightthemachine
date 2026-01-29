@@ -1,5 +1,6 @@
 // Fight the Machine - Win32 Native Client
-// Embeds WebView2 to display noVNC interface for containerized psDoom-ng
+// Embeds WebView2 to display noVNC interface for psDoom-ng
+// Supports both Docker (legacy) and QEMU (embedded) backends
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -15,18 +16,33 @@
 #include <atomic>
 #include <chrono>
 
+#ifdef USE_QEMU
+#include "qemu_manager.h"
+#endif
+
 #pragma comment(lib, "shlwapi.lib")
 #pragma comment(lib, "shell32.lib")
 
 using namespace Microsoft::WRL;
 
+// Backend type
+enum class BackendType {
+    Docker,
+    QEMU
+};
+
 // Global variables
 static HWND g_hWnd = nullptr;
 static ComPtr<ICoreWebView2Controller> g_webviewController;
 static ComPtr<ICoreWebView2> g_webview;
-static std::atomic<bool> g_containerRunning(false);
+static std::atomic<bool> g_backendRunning(false);
 static std::atomic<bool> g_shutdownRequested(false);
-static HANDLE g_dockerThread = nullptr;
+static HANDLE g_backendThread = nullptr;
+static BackendType g_backendType = BackendType::Docker;
+
+#ifdef USE_QEMU
+static QemuManager* g_qemuManager = nullptr;
+#endif
 
 // Configuration
 const wchar_t* APP_TITLE = L"Fight the Machine";
@@ -39,27 +55,34 @@ const int HEALTH_CHECK_INTERVAL_MS = 2000;
 // Forward declarations
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 bool InitWebView(HWND hwnd);
-bool StartDockerContainer();
-bool StopDockerContainer();
-bool IsDockerRunning();
-bool IsContainerHealthy();
+bool StartBackend();
+bool StopBackend();
+bool IsBackendHealthy();
 void ShowError(const wchar_t* message);
 void ShowStatus(const wchar_t* status);
 std::wstring GetExecutableDirectory();
+BackendType DetectBackendType();
 
-// Docker management thread
-DWORD WINAPI DockerManagerThread(LPVOID lpParam) {
-    // Start the container
-    if (!StartDockerContainer()) {
+// Docker functions (legacy)
+bool IsDockerRunning();
+bool IsDockerContainerHealthy();
+bool StartDockerContainer();
+bool StopDockerContainer();
+bool RunCommand(const wchar_t* command, bool wait = true, bool hidden = true);
+
+// Backend management thread
+DWORD WINAPI BackendManagerThread(LPVOID lpParam) {
+    // Start the backend
+    if (!StartBackend()) {
         PostMessage(g_hWnd, WM_USER + 1, 0, 0); // Signal startup failure
         return 1;
     }
 
-    // Wait for container to become healthy
+    // Wait for backend to become healthy
     auto startTime = std::chrono::steady_clock::now();
     while (!g_shutdownRequested) {
-        if (IsContainerHealthy()) {
-            g_containerRunning = true;
+        if (IsBackendHealthy()) {
+            g_backendRunning = true;
             PostMessage(g_hWnd, WM_USER + 2, 0, 0); // Signal ready to load URL
             break;
         }
@@ -75,16 +98,54 @@ DWORD WINAPI DockerManagerThread(LPVOID lpParam) {
         Sleep(500);
     }
 
-    // Monitor container health
-    while (!g_shutdownRequested && g_containerRunning) {
+    // Monitor backend health
+    while (!g_shutdownRequested && g_backendRunning) {
         Sleep(HEALTH_CHECK_INTERVAL_MS);
-        if (!IsContainerHealthy()) {
-            g_containerRunning = false;
-            PostMessage(g_hWnd, WM_USER + 3, 0, 0); // Signal container stopped
+        if (!IsBackendHealthy()) {
+            g_backendRunning = false;
+            PostMessage(g_hWnd, WM_USER + 3, 0, 0); // Signal backend stopped
         }
     }
 
     return 0;
+}
+
+BackendType DetectBackendType() {
+#ifdef USE_QEMU
+    // Check if QEMU files exist
+    std::wstring exeDir = GetExecutableDirectory();
+    std::wstring qemuPaths[] = {
+        exeDir + L"\\qemu\\qemu-system-x86_64.exe",
+        exeDir + L"\\qemu\\qemu-system-x86_64w.exe",
+    };
+    std::wstring vmPaths[] = {
+        exeDir + L"\\vm\\fightthemachine.qcow2",
+        exeDir + L"\\fightthemachine.qcow2",
+    };
+
+    bool hasQemu = false;
+    bool hasVM = false;
+
+    for (const auto& path : qemuPaths) {
+        if (PathFileExistsW(path.c_str())) {
+            hasQemu = true;
+            break;
+        }
+    }
+    for (const auto& path : vmPaths) {
+        if (PathFileExistsW(path.c_str())) {
+            hasVM = true;
+            break;
+        }
+    }
+
+    if (hasQemu && hasVM) {
+        return BackendType::QEMU;
+    }
+#endif
+
+    // Fall back to Docker
+    return BackendType::Docker;
 }
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine, int nCmdShow) {
@@ -95,12 +156,30 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         return 1;
     }
 
-    // Check if Docker is available
-    if (!IsDockerRunning()) {
+    // Detect backend type
+    g_backendType = DetectBackendType();
+
+#ifdef USE_QEMU
+    if (g_backendType == BackendType::QEMU) {
+        // Initialize QEMU manager
+        g_qemuManager = new QemuManager();
+        if (!g_qemuManager->Initialize(GetExecutableDirectory())) {
+            // Fall back to Docker if QEMU init fails
+            delete g_qemuManager;
+            g_qemuManager = nullptr;
+            g_backendType = BackendType::Docker;
+        }
+    }
+#endif
+
+    // Check if Docker is available (if using Docker backend)
+    if (g_backendType == BackendType::Docker && !IsDockerRunning()) {
         MessageBoxW(nullptr,
-            L"Docker Desktop is not running.\n\n"
-            L"Please install and start Docker Desktop, then run this application again.\n\n"
-            L"Download: https://www.docker.com/products/docker-desktop/",
+            L"Docker Desktop is not running and QEMU VM not found.\n\n"
+            L"Please either:\n"
+            L"1. Install and start Docker Desktop, or\n"
+            L"2. Use the QEMU-embedded version of this application\n\n"
+            L"Download Docker: https://www.docker.com/products/docker-desktop/",
             APP_TITLE, MB_OK | MB_ICONERROR);
         CoUninitialize();
         return 1;
@@ -128,11 +207,25 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
     int posX = (screenWidth - WINDOW_WIDTH) / 2;
     int posY = (screenHeight - WINDOW_HEIGHT) / 2;
 
+    // Build window title with backend info
+    std::wstring windowTitle = APP_TITLE;
+#ifdef USE_QEMU
+    if (g_backendType == BackendType::QEMU && g_qemuManager) {
+        windowTitle += L" [QEMU: ";
+        windowTitle += g_qemuManager->GetAccelerationName(g_qemuManager->DetectAcceleration());
+        windowTitle += L"]";
+    } else {
+        windowTitle += L" [Docker]";
+    }
+#else
+    windowTitle += L" [Docker]";
+#endif
+
     // Create main window
     g_hWnd = CreateWindowExW(
         0,
         L"FightTheMachineClass",
-        APP_TITLE,
+        windowTitle.c_str(),
         WS_OVERLAPPEDWINDOW,
         posX, posY, WINDOW_WIDTH, WINDOW_HEIGHT,
         nullptr, nullptr, hInstance, nullptr
@@ -155,8 +248,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
         return 1;
     }
 
-    // Start Docker management thread
-    g_dockerThread = CreateThread(nullptr, 0, DockerManagerThread, nullptr, 0, nullptr);
+    // Start backend management thread
+    g_backendThread = CreateThread(nullptr, 0, BackendManagerThread, nullptr, 0, nullptr);
 
     // Message loop
     MSG msg = {};
@@ -167,13 +260,20 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PWSTR pCmdLine
 
     // Cleanup
     g_shutdownRequested = true;
-    if (g_dockerThread) {
-        WaitForSingleObject(g_dockerThread, 5000);
-        CloseHandle(g_dockerThread);
+    if (g_backendThread) {
+        WaitForSingleObject(g_backendThread, 5000);
+        CloseHandle(g_backendThread);
     }
 
-    // Stop the container on exit
-    StopDockerContainer();
+    // Stop the backend on exit
+    StopBackend();
+
+#ifdef USE_QEMU
+    if (g_qemuManager) {
+        delete g_qemuManager;
+        g_qemuManager = nullptr;
+    }
+#endif
 
     CoUninitialize();
     return (int)msg.wParam;
@@ -194,33 +294,55 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) 
         PostQuitMessage(0);
         return 0;
 
-    case WM_USER + 1: // Docker startup failure
-        MessageBoxW(hwnd,
-            L"Failed to start the game container.\n\n"
-            L"Please check that Docker Desktop is running and try again.",
-            APP_TITLE, MB_OK | MB_ICONERROR);
+    case WM_USER + 1: // Backend startup failure
+        {
+            std::wstring msg = L"Failed to start the game ";
+            msg += (g_backendType == BackendType::QEMU) ? L"VM" : L"container";
+            msg += L".\n\n";
+#ifdef USE_QEMU
+            if (g_backendType == BackendType::QEMU && g_qemuManager) {
+                msg += L"Error: ";
+                msg += g_qemuManager->GetLastError();
+                msg += L"\n\n";
+            }
+#endif
+            msg += L"Please check your configuration and try again.";
+            MessageBoxW(hwnd, msg.c_str(), APP_TITLE, MB_OK | MB_ICONERROR);
+        }
         DestroyWindow(hwnd);
         return 0;
 
-    case WM_USER + 2: // Container ready - load URL
+    case WM_USER + 2: // Backend ready - load URL
         if (g_webview) {
+#ifdef USE_QEMU
+            if (g_backendType == BackendType::QEMU && g_qemuManager) {
+                g_webview->Navigate(g_qemuManager->GetNoVNCUrl().c_str());
+            } else {
+                g_webview->Navigate(NOVNC_URL);
+            }
+#else
             g_webview->Navigate(NOVNC_URL);
+#endif
             SetWindowTextW(hwnd, APP_TITLE);
         }
         return 0;
 
-    case WM_USER + 3: // Container stopped unexpectedly
-        if (MessageBoxW(hwnd,
-            L"The game container has stopped.\n\nWould you like to restart it?",
-            APP_TITLE, MB_YESNO | MB_ICONWARNING) == IDYES) {
-            // Restart container
-            g_dockerThread = CreateThread(nullptr, 0, DockerManagerThread, nullptr, 0, nullptr);
-            if (g_webview) {
-                g_webview->Navigate(L"about:blank");
+    case WM_USER + 3: // Backend stopped unexpectedly
+        {
+            std::wstring msg = L"The game ";
+            msg += (g_backendType == BackendType::QEMU) ? L"VM" : L"container";
+            msg += L" has stopped.\n\nWould you like to restart it?";
+
+            if (MessageBoxW(hwnd, msg.c_str(), APP_TITLE, MB_YESNO | MB_ICONWARNING) == IDYES) {
+                // Restart backend
+                g_backendThread = CreateThread(nullptr, 0, BackendManagerThread, nullptr, 0, nullptr);
+                if (g_webview) {
+                    g_webview->Navigate(L"about:blank");
+                }
+                SetWindowTextW(hwnd, L"Fight the Machine - Restarting...");
+            } else {
+                DestroyWindow(hwnd);
             }
-            SetWindowTextW(hwnd, L"Fight the Machine - Restarting...");
-        } else {
-            DestroyWindow(hwnd);
         }
         return 0;
 
@@ -297,8 +419,9 @@ bool InitWebView(HWND hwnd) {
                             GetClientRect(hwnd, &bounds);
                             g_webviewController->put_Bounds(bounds);
 
-                            // Show loading page while container starts
-                            g_webview->NavigateToString(
+                            // Build loading message based on backend type
+                            std::wstring backendName = (g_backendType == BackendType::QEMU) ? L"VM" : L"container";
+                            std::wstring loadingHtml =
                                 L"<!DOCTYPE html>"
                                 L"<html><head><style>"
                                 L"body { background: #1a1a2e; color: #00ff41; font-family: 'Courier New', monospace; "
@@ -313,10 +436,11 @@ bool InitWebView(HWND hwnd) {
                                 L"</style></head><body>"
                                 L"<h1>FIGHT THE MACHINE</h1>"
                                 L"<div class='loader'></div>"
-                                L"<p>Starting game container...</p>"
+                                L"<p>Starting game " + backendName + L"...</p>"
                                 L"<p class='hint'>Press F11 for fullscreen | ESC to exit fullscreen</p>"
-                                L"</body></html>"
-                            );
+                                L"</body></html>";
+
+                            g_webview->NavigateToString(loadingHtml.c_str());
 
                             return S_OK;
                         }).Get());
@@ -334,7 +458,42 @@ std::wstring GetExecutableDirectory() {
     return std::wstring(path);
 }
 
-bool RunCommand(const wchar_t* command, bool wait = true, bool hidden = true) {
+// ============================================================================
+// Backend abstraction layer
+// ============================================================================
+
+bool StartBackend() {
+#ifdef USE_QEMU
+    if (g_backendType == BackendType::QEMU && g_qemuManager) {
+        return g_qemuManager->StartVM();
+    }
+#endif
+    return StartDockerContainer();
+}
+
+bool StopBackend() {
+#ifdef USE_QEMU
+    if (g_backendType == BackendType::QEMU && g_qemuManager) {
+        return g_qemuManager->StopVM();
+    }
+#endif
+    return StopDockerContainer();
+}
+
+bool IsBackendHealthy() {
+#ifdef USE_QEMU
+    if (g_backendType == BackendType::QEMU && g_qemuManager) {
+        return g_qemuManager->IsVMHealthy();
+    }
+#endif
+    return IsDockerContainerHealthy();
+}
+
+// ============================================================================
+// Docker backend (legacy)
+// ============================================================================
+
+bool RunCommand(const wchar_t* command, bool wait, bool hidden) {
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi = {};
 
@@ -374,7 +533,7 @@ bool IsDockerRunning() {
     return RunCommand(L"docker info");
 }
 
-bool IsContainerHealthy() {
+bool IsDockerContainerHealthy() {
     // Check if container is running and healthy
     return RunCommand(L"docker inspect --format=\"{{.State.Health.Status}}\" fightthemachine 2>nul | findstr healthy");
 }

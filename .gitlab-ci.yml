@@ -1,5 +1,5 @@
 # GitLab CI/CD Pipeline for Fight the Machine
-# Builds Docker image and Win32 native client
+# Builds Docker image, QEMU VM, Win32 clients (Docker and QEMU), and Native Windows port
 
 stages:
   - build
@@ -11,6 +11,7 @@ variables:
   DOCKER_IMAGE: $CI_REGISTRY_IMAGE
   DOCKER_TAG: $CI_COMMIT_SHORT_SHA
   WIN32_ARTIFACT_NAME: fightthemachine-win32
+  QEMU_VERSION: "8.2.0"
 
 # =============================================================================
 # Docker Image Build (Linux runner with Docker)
@@ -44,7 +45,39 @@ build:docker:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
-# Win32 Native Client Build (Windows runner)
+# QEMU VM Image Build (Linux runner with Docker and QEMU tools)
+# =============================================================================
+
+build:qemu-vm:
+  stage: build
+  tags:
+    - linux
+    - debian
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    DOCKER_BUILDKIT: "1"
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    # Install QEMU tools
+    - apk add --no-cache qemu-img qemu-system-x86_64 e2fsprogs
+  script:
+    - cd qemu
+    - chmod +x build-vm-image.sh
+    - ./build-vm-image.sh
+  artifacts:
+    name: "qemu-vm-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - qemu/fightthemachine.qcow2
+    expire_in: 7 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# =============================================================================
+# Win32 Native Client Build - Docker Mode (Windows runner)
 # =============================================================================
 
 build:win32:
@@ -95,11 +128,11 @@ build:win32:
         New-Item -ItemType Directory -Path build | Out-Null
       }
     - Set-Location build
-    - cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE="$env:CMAKE_BUILD_TYPE" ..
+    - cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE="$env:CMAKE_BUILD_TYPE" -DUSE_DOCKER=ON -DUSE_QEMU=OFF ..
     - cmake --build . --config "$env:CMAKE_BUILD_TYPE" --parallel
     - cpack -C "$env:CMAKE_BUILD_TYPE" -G ZIP
   artifacts:
-    name: "$WIN32_ARTIFACT_NAME-$CI_COMMIT_SHORT_SHA"
+    name: "$WIN32_ARTIFACT_NAME-docker-$CI_COMMIT_SHORT_SHA"
     paths:
       - win32/build/Release/fightthemachine.exe
       - win32/build/Release/WebView2Loader.dll
@@ -108,6 +141,161 @@ build:win32:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+# =============================================================================
+# Win32 Native Client Build - QEMU Mode (Windows runner)
+# =============================================================================
+
+build:win32-qemu:
+  stage: build
+  tags:
+    - windows
+    - shell
+  needs:
+    - job: build:qemu-vm
+      artifacts: true
+  variables:
+    CMAKE_BUILD_TYPE: Release
+  cache:
+    key: win32-qemu-${CI_COMMIT_REF_SLUG}
+    paths:
+      - win32/build-qemu/_deps/
+  before_script:
+    # Find and add CMake to PATH
+    - |
+      $cmakePaths = @(
+        "C:\Program Files\CMake\bin",
+        "C:\Program Files (x86)\CMake\bin",
+        "${env:ProgramFiles}\CMake\bin",
+        "${env:ProgramFiles(x86)}\CMake\bin"
+      )
+      foreach ($p in $cmakePaths) {
+        if (Test-Path "$p\cmake.exe") {
+          $env:PATH = "$p;$env:PATH"
+          Write-Host "Found CMake at: $p"
+          break
+        }
+      }
+    # Try to load Visual Studio environment
+    - |
+      try {
+        $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath 2>$null
+        if ($vsPath) {
+          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
+          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=amd64"
+          Write-Host "Visual Studio environment loaded from: $vsPath"
+        }
+      } catch {
+        Write-Host "Visual Studio DevShell not loaded, continuing anyway..."
+      }
+    - cmake --version
+    # Download QEMU for Windows
+    - |
+      $qemuUrl = "https://qemu.weilnetz.de/w64/qemu-w64-setup-$env:QEMU_VERSION.exe"
+      $qemuInstaller = "$env:TEMP\qemu-setup.exe"
+      if (-not (Test-Path $qemuInstaller)) {
+        Write-Host "Downloading QEMU $env:QEMU_VERSION..."
+        Invoke-WebRequest -Uri $qemuUrl -OutFile $qemuInstaller -UseBasicParsing
+      }
+      # Extract QEMU (use 7-zip if available)
+      $qemuDir = "$env:CI_PROJECT_DIR\qemu\qemu-win64"
+      if (-not (Test-Path $qemuDir)) {
+        New-Item -ItemType Directory -Path $qemuDir -Force | Out-Null
+      }
+      $7zipPath = "C:\Program Files\7-Zip\7z.exe"
+      if (Test-Path $7zipPath) {
+        & $7zipPath x $qemuInstaller -o"$qemuDir" -y | Out-Null
+      } else {
+        Write-Host "7-Zip not found, trying silent install..."
+        Start-Process -FilePath $qemuInstaller -ArgumentList "/S", "/D=$qemuDir" -Wait -NoNewWindow
+      }
+  script:
+    - Set-Location "$env:CI_PROJECT_DIR\win32"
+    - |
+      if (-not (Test-Path build-qemu)) {
+        New-Item -ItemType Directory -Path build-qemu | Out-Null
+      }
+    - Set-Location build-qemu
+    - cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE="$env:CMAKE_BUILD_TYPE" -DUSE_QEMU=ON -DUSE_DOCKER=OFF ..
+    - cmake --build . --config "$env:CMAKE_BUILD_TYPE" --parallel
+    # Package with QEMU and VM
+    - |
+      $packageDir = "$env:CI_PROJECT_DIR\dist\FightTheMachine-QEMU"
+      New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+      New-Item -ItemType Directory -Path "$packageDir\qemu" -Force | Out-Null
+      New-Item -ItemType Directory -Path "$packageDir\vm" -Force | Out-Null
+      # Copy launcher
+      Copy-Item "Release\fightthemachine.exe" $packageDir
+      Copy-Item "Release\WebView2Loader.dll" $packageDir -ErrorAction SilentlyContinue
+      # Copy QEMU binaries
+      $qemuBinDir = "$env:CI_PROJECT_DIR\qemu\qemu-win64"
+      Get-ChildItem -Path $qemuBinDir -Filter "qemu-system-x86_64*.exe" | Copy-Item -Destination "$packageDir\qemu"
+      Get-ChildItem -Path $qemuBinDir -Filter "*.dll" | Copy-Item -Destination "$packageDir\qemu"
+      # Copy VM image
+      Copy-Item "$env:CI_PROJECT_DIR\qemu\fightthemachine.qcow2" "$packageDir\vm\"
+      # Create ZIP
+      $zipPath = "$env:CI_PROJECT_DIR\dist\FightTheMachine-QEMU-$env:CI_COMMIT_SHORT_SHA.zip"
+      Compress-Archive -Path "$packageDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+  artifacts:
+    name: "$WIN32_ARTIFACT_NAME-qemu-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/FightTheMachine-QEMU-*.zip
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# =============================================================================
+# Native Windows Port Build (Windows runner with MSYS2)
+# =============================================================================
+
+build:win32-native:
+  stage: build
+  tags:
+    - windows
+    - shell
+  variables:
+    CMAKE_BUILD_TYPE: Release
+    MSYSTEM: MINGW64
+  cache:
+    key: win32-native-${CI_COMMIT_REF_SLUG}
+    paths:
+      - native/build/
+  before_script:
+    # Check for MSYS2
+    - |
+      $msys2Paths = @(
+        "C:\msys64",
+        "C:\tools\msys64",
+        "$env:USERPROFILE\msys64"
+      )
+      $msys2 = $null
+      foreach ($p in $msys2Paths) {
+        if (Test-Path "$p\usr\bin\bash.exe") {
+          $msys2 = $p
+          Write-Host "Found MSYS2 at: $p"
+          break
+        }
+      }
+      if (-not $msys2) {
+        Write-Host "MSYS2 not found, skipping native build"
+        exit 0
+      }
+      $env:MSYS2_PATH = $msys2
+  script:
+    - |
+      if ($env:MSYS2_PATH) {
+        $bash = "$env:MSYS2_PATH\usr\bin\bash.exe"
+        & $bash -lc "cd /c/$(($env:CI_PROJECT_DIR -replace '\\','/') -replace 'C:','')/native && ./build-msys2.sh"
+      }
+  artifacts:
+    name: "fightthemachine-native-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - native/build/*.exe
+      - native/build/*.zip
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  allow_failure: true  # MSYS2 may not be installed on all runners
 
 # =============================================================================
 # Tests (Linux runner with Docker)
@@ -170,20 +358,25 @@ package:release:
       Fight the Machine - Release Package
       ====================================
 
-      Win32 Client:
-        - fightthemachine.exe: Main application
-        - WebView2Loader.dll: Required runtime library
+      This package contains multiple versions of Fight the Machine:
+
+      1. Docker Version (fightthemachine-docker.zip)
+         - Requires Docker Desktop
+         - Runs in a container
+
+      2. QEMU Version (FightTheMachine-QEMU-*.zip)
+         - Portable, no Docker required
+         - Includes bundled VM (~150MB)
+         - Best with Hyper-V/WHPX enabled
+
+      3. Native Version (fightthemachine-native.zip)
+         - Kills REAL Windows processes
+         - Use with caution!
+         - Run process-respawner.exe first
 
       Requirements:
-        - Windows 10 or later
-        - Docker Desktop installed and running
+        - Windows 10 or later (64-bit)
         - Microsoft Edge WebView2 Runtime
-
-      Usage:
-        1. Ensure Docker Desktop is running
-        2. Run fightthemachine.exe
-        3. Wait for the game container to start
-        4. Play DOOM and kill processes!
 
       Controls:
         - Arrow keys: Move
@@ -194,8 +387,11 @@ package:release:
 
       Source: https://github.com/sp00nznet/fightthemachine
       EOF
+    # Copy artifacts from previous jobs
     - cp win32/build/Release/fightthemachine.exe release/ || true
     - cp win32/build/Release/WebView2Loader.dll release/ || true
+    - cp dist/FightTheMachine-QEMU-*.zip release/ || true
+    - cp native/build/*.zip release/ || true
   artifacts:
     name: "fightthemachine-release-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -203,6 +399,10 @@ package:release:
     expire_in: 90 days
   needs:
     - build:win32
+    - job: build:win32-qemu
+      optional: true
+    - job: build:win32-native
+      optional: true
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
 
@@ -218,6 +418,9 @@ deploy:win32:
   needs:
     - job: build:win32
       artifacts: true
+    - job: build:win32-qemu
+      artifacts: true
+      optional: true
   script:
     - 'net use R: \\192.168.100.22\releases gitlab /user:root'
     - '$destPath = "R:\$env:CI_PROJECT_NAME\$env:CI_COMMIT_REF_NAME"'
@@ -225,6 +428,7 @@ deploy:win32:
     - 'Copy-Item -Path "win32\build\Release\fightthemachine.exe" -Destination $destPath -Force'
     - 'Copy-Item -Path "win32\build\Release\WebView2Loader.dll" -Destination $destPath -Force'
     - 'Copy-Item -Path "win32\build\*.zip" -Destination $destPath -Force -ErrorAction SilentlyContinue'
+    - 'Copy-Item -Path "dist\FightTheMachine-QEMU-*.zip" -Destination $destPath -Force -ErrorAction SilentlyContinue'
     - 'Copy-Item -Path "LICENSE" -Destination $destPath -Force -ErrorAction SilentlyContinue'
     - 'net use R: /delete'
   rules:
