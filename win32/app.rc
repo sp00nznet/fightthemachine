@@ -36,5 +36,5 @@ BEGIN
     END
 END
 
-// Application manifest for modern Windows styling and DPI awareness
-1 RT_MANIFEST "app.manifest"
+// Note: Application manifest is handled via CMake/linker settings
+// Do not include manifest here to avoid duplicate resource errors
