@@ -42,7 +42,23 @@ RUN git clone --depth 1 https://github.com/orsonteodoro/psdoom-ng.git && \
     cd psdoom-ng/trunk && \
     ./autogen.sh && \
     ./configure && \
-    (make -j$(nproc) || true)
+    # Create dummy desktop file to prevent build failure
+    touch src/psdoom-ng.desktop && \
+    # Build with -k to continue despite errors, then verify binary exists
+    (make -j$(nproc) -k || true) && \
+    # If binary wasn't created, try linking it manually
+    (test -f src/psdoom-ng || \
+      (cd src && gcc -o psdoom-ng i_main.o i_system.o m_argv.o m_misc.o d_event.o d_iwad.o \
+        d_loop.o d_mode.o deh_str.o i_cdmus.o i_endoom.o i_joystick.o i_scale.o i_sound.o \
+        i_timer.o i_video.o i_videohr.o m_bbox.o m_cheat.o m_config.o m_controls.o m_fixed.o \
+        sha1.o memio.o tables.o v_video.o w_checksum.o w_main.o w_wad.o w_file.o w_file_stdc.o \
+        w_file_posix.o w_file_win32.o z_zone.o w_merge.o gusconf.o i_pcsound.o i_sdlsound.o \
+        i_sdlmusic.o i_oplmusic.o midifile.o mus2mid.o aes_prng.o net_client.o net_common.o \
+        net_dedicated.o net_gui.o net_io.o net_loop.o net_packet.o net_query.o net_sdl.o \
+        net_server.o net_structrw.o deh_io.o deh_main.o deh_mapping.o deh_text.o \
+        doom/libdoom.a ../textscreen/libtextscreen.a ../pcsound/libpcsound.a ../opl/libopl.a \
+        -lSDL -lSDL_mixer -lSDL_net -lpng -lz -lm)) && \
+    test -f src/psdoom-ng
 
 # =============================================================================
 # Stage 2: Runtime image (minimal)
