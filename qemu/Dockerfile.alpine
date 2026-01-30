@@ -12,19 +12,19 @@ LABEL description="Alpine Linux rootfs for QEMU VM with psDoom-ng"
 RUN apk add --no-cache \
     # Init system
     openrc \
-    busybox-initscripts \
     # Network
     dhcpcd \
     # X11 and display
-    xvfb \
+    xvfb-run \
+    xorg-server \
     x11vnc \
     openbox \
-    # noVNC
+    xterm \
+    # noVNC (install websockify via pip)
     novnc \
-    py3-websockify \
     py3-numpy \
-    # SDL runtime
-    sdl \
+    # SDL 1.2 runtime (sdl12-compat provides SDL 1.2 API)
+    sdl12-compat \
     sdl_mixer \
     sdl_net \
     libpng \
@@ -45,12 +45,13 @@ RUN apk add --no-cache \
     automake \
     libtool \
     pkgconf \
-    sdl-dev \
+    sdl12-compat-dev \
     sdl_mixer-dev \
     sdl_net-dev \
     libpng-dev \
     libx11-dev \
-    libxext-dev
+    libxext-dev \
+    && pip3 install --break-system-packages websockify
 
 # Create game user
 RUN adduser -D -s /bin/bash doom && \
@@ -93,7 +94,7 @@ RUN curl -fsSL -o /usr/share/games/doom/doom1.wad \
 # Clean up build dependencies to reduce size
 RUN apk del \
     build-base git autoconf automake libtool pkgconf \
-    sdl-dev sdl_mixer-dev sdl_net-dev libpng-dev libx11-dev libxext-dev && \
+    sdl12-compat-dev sdl_mixer-dev sdl_net-dev libpng-dev libx11-dev libxext-dev && \
     rm -rf /build /root/.cache /tmp/* /var/cache/apk/*
 
 # Create directories
