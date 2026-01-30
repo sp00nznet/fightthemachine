@@ -33,7 +33,9 @@ Fight the Machine runs [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) in
 run.bat
 ```
 
-**Windows (Native App):** Build and run the [Win32 client](win32/) for a native desktop experience.
+**Windows (Native App):**
+- [Win32 client](win32/) - Native desktop wrapper for the Docker container
+- **[Native Windows Port](native/psdoom-win32/)** - **Kills REAL Windows processes!** (no Docker required)
 
 Then open **http://localhost:6080** in your browser.
 
@@ -115,9 +117,11 @@ The `sudo` cheat is a Fight the Machine exclusive - because in Unix, `sudo` give
 
 ---
 
-## Win32 Native Client
+## Windows Options
 
-A native Windows desktop application is available in the `win32/` directory. It embeds WebView2 and manages the Docker container automatically.
+### Option 1: Win32 Client (Safe - Docker Container)
+
+A native Windows desktop application that wraps the Docker container. Processes are killed inside the container only - your system is safe.
 
 ```batch
 cd win32
@@ -125,6 +129,26 @@ build.bat release
 ```
 
 See [win32/README.md](win32/README.md) for build instructions.
+
+### Option 2: Native Windows Port (Dangerous - Real Processes!)
+
+A true native Windows port that kills **REAL Windows processes** using the Windows API. No Docker required.
+
+```bash
+# In MSYS2 MINGW64 terminal:
+cd native/psdoom-win32
+./build-windows.sh
+```
+
+**Features:**
+- Uses `TerminateProcess` to kill real Windows processes
+- Protected system process blacklist (explorer.exe, svchost.exe, etc.)
+- Safe mode option (only kills notepad.exe, calc.exe, mspaint.exe by default)
+- No container or virtualization - native Windows executable
+
+See [native/psdoom-win32/README.md](native/psdoom-win32/README.md) for details.
+
+**Warning:** This can kill actual processes on your Windows system. Use at your own risk!
 
 ---
 
