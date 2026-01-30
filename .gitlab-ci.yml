@@ -55,19 +55,15 @@ build:qemu-vm:
   tags:
     - linux
     - debian
-  variables:
-    DOCKER_BUILDKIT: "1"
+  # NO DOCKER REQUIRED - uses Alpine minirootfs + chroot
   before_script:
-    # Login to Docker Hub first (for rate limit), then GitLab registry
-    - docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN || true
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    # Install only qemu-img (for disk image creation) - not full qemu-system
-    - sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qemu-utils e2fsprogs || true
-    # Verify qemu-img is available
+    # Install qemu-img and e2fsprogs for disk image creation
+    - sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qemu-utils e2fsprogs curl || true
     - which qemu-img || (echo "qemu-img not found" && exit 1)
   script:
     - cd qemu
     - chmod +x build-vm-image.sh
+    # Script requires root for chroot - runs with sudo internally
     - ./build-vm-image.sh
   artifacts:
     name: "qemu-vm-$CI_COMMIT_SHORT_SHA"
