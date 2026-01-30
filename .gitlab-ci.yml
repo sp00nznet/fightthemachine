@@ -12,6 +12,8 @@ variables:
   DOCKER_TAG: $CI_COMMIT_SHORT_SHA
   WIN32_ARTIFACT_NAME: fightthemachine-win32
   QEMU_VERSION: "8.2.0"
+  GIT_LFS_SKIP_SMUDGE: "1"
+  GIT_DEPTH: "50"
 
 # =============================================================================
 # Docker Image Build (Linux runner with Docker - uses host Docker, not dind)
@@ -357,7 +359,6 @@ package:release:
   tags:
     - linux
     - debian
-  image: alpine:latest
   script:
     - echo "Creating release package..."
     - mkdir -p release
@@ -478,10 +479,8 @@ sync:github:
   tags:
     - linux
     - debian
-  image: alpine/git:latest
   variables:
     GIT_STRATEGY: clone
-    GIT_DEPTH: 0
   before_script:
     - git config --global user.email "ci@buildforever.cloud"
     - git config --global user.name "GitLab CI"
