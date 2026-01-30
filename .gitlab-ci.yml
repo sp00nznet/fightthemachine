@@ -25,19 +25,16 @@ build:docker:
   variables:
     DOCKER_BUILDKIT: "1"
   before_script:
-    # Move Docker storage to /mnt/scratch (900GB) if not already there
+    # Point Docker storage to /mnt/scratch (900GB) - don't copy, just recreate
     - |
       if [ ! -L /var/lib/docker ] && [ -d /mnt/scratch ]; then
-        echo "Moving Docker storage to /mnt/scratch..."
-        sudo systemctl stop docker || true
-        sudo mkdir -p /mnt/scratch/docker
-        sudo rsync -a /var/lib/docker/ /mnt/scratch/docker/ || true
+        echo "Pointing Docker storage to /mnt/scratch..."
+        sudo systemctl stop docker.socket docker || true
         sudo rm -rf /var/lib/docker
+        sudo mkdir -p /mnt/scratch/docker
         sudo ln -s /mnt/scratch/docker /var/lib/docker
-        sudo systemctl start docker || true
-        sleep 5
+        sudo systemctl start docker.socket docker || true
       fi
-    # Also move buildx cache to /mnt/scratch
     - sudo mkdir -p /mnt/scratch/buildx && sudo rm -rf /root/.docker/buildx && sudo ln -sf /mnt/scratch/buildx /root/.docker/buildx || true
     # Clean up old caches
     - sudo docker system prune -af --volumes || true
