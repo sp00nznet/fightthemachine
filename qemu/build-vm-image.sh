@@ -29,7 +29,12 @@ if [ "$(id -u)" -ne 0 ]; then
     exec sudo "$0" "$@"
 fi
 
-WORK_DIR=$(mktemp -d)
+# Use /mnt/scratch for temp files (has 900GB)
+if [ -d /mnt/scratch ]; then
+    WORK_DIR=$(mktemp -d -p /mnt/scratch)
+else
+    WORK_DIR=$(mktemp -d)
+fi
 ROOTFS_DIR="$WORK_DIR/rootfs"
 trap "rm -rf $WORK_DIR" EXIT
 
