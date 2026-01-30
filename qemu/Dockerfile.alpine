@@ -26,7 +26,6 @@ RUN apk add --no-cache \
     # SDL 1.2 runtime (sdl12-compat provides SDL 1.2 API)
     sdl12-compat \
     sdl_mixer \
-    sdl_net \
     libpng \
     # Process management
     supervisor \
@@ -47,7 +46,6 @@ RUN apk add --no-cache \
     pkgconf \
     sdl12-compat-dev \
     sdl_mixer-dev \
-    sdl_net-dev \
     libpng-dev \
     libx11-dev \
     libxext-dev \
@@ -65,7 +63,7 @@ RUN chmod +x /tmp/add-sudo-cheat.sh && \
     /tmp/add-sudo-cheat.sh /build/psdoom-ng/trunk/src/doom/st_stuff.c && \
     cd psdoom-ng/trunk && \
     ./autogen.sh && \
-    ./configure && \
+    ./configure --disable-sdlnet && \
     touch src/psdoom-ng.desktop && \
     (make -j$(nproc) -k || true) && \
     (test -f src/psdoom-ng || \
@@ -74,11 +72,10 @@ RUN chmod +x /tmp/add-sudo-cheat.sh && \
         i_timer.o i_video.o i_videohr.o m_bbox.o m_cheat.o m_config.o m_controls.o m_fixed.o \
         sha1.o memio.o tables.o v_video.o w_checksum.o w_main.o w_wad.o w_file.o w_file_stdc.o \
         w_file_posix.o w_file_win32.o z_zone.o w_merge.o gusconf.o i_pcsound.o i_sdlsound.o \
-        i_sdlmusic.o i_oplmusic.o midifile.o mus2mid.o aes_prng.o net_client.o net_common.o \
-        net_dedicated.o net_gui.o net_io.o net_loop.o net_packet.o net_query.o net_sdl.o \
-        net_server.o net_structrw.o deh_io.o deh_main.o deh_mapping.o deh_text.o \
+        i_sdlmusic.o i_oplmusic.o midifile.o mus2mid.o aes_prng.o \
+        deh_io.o deh_main.o deh_mapping.o deh_text.o \
         doom/libdoom.a ../textscreen/libtextscreen.a ../pcsound/libpcsound.a ../opl/libopl.a \
-        -lSDL -lSDL_mixer -lSDL_net -lpng -lz -lm)) && \
+        -lSDL -lSDL_mixer -lpng -lz -lm)) && \
     cp src/psdoom-ng /usr/local/bin/ && \
     chmod +x /usr/local/bin/psdoom-ng
 
@@ -94,7 +91,7 @@ RUN curl -fsSL -o /usr/share/games/doom/doom1.wad \
 # Clean up build dependencies to reduce size
 RUN apk del \
     build-base git autoconf automake libtool pkgconf \
-    sdl12-compat-dev sdl_mixer-dev sdl_net-dev libpng-dev libx11-dev libxext-dev && \
+    sdl12-compat-dev sdl_mixer-dev libpng-dev libx11-dev libxext-dev && \
     rm -rf /build /root/.cache /tmp/* /var/cache/apk/*
 
 # Create directories
