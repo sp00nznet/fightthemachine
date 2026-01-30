@@ -12,7 +12,6 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_IMAGE="$SCRIPT_DIR/fightthemachine.qcow2"
 ALPINE_VERSION="3.19"
 ALPINE_MIRROR="https://dl-cdn.alpinelinux.org/alpine"
-IMAGE_SIZE="512M"
 
 echo "=========================================="
 echo "Fight the Machine - VM Image Builder"
@@ -203,8 +202,14 @@ if ! command -v genext2fs &>/dev/null; then
     }
 fi
 
+# Calculate rootfs size and add 50% headroom
+ROOTFS_SIZE_KB=$(du -sk "$ROOTFS_DIR" | cut -f1)
+ROOTFS_SIZE_MB=$((ROOTFS_SIZE_KB / 1024))
+IMAGE_BLOCKS=$(( (ROOTFS_SIZE_KB * 3 / 2) ))  # 1.5x size for headroom
+echo "Rootfs size: ${ROOTFS_SIZE_MB}MB, creating image with $((IMAGE_BLOCKS / 1024))MB"
+
 RAW_IMAGE="$WORK_DIR/disk.raw"
-genext2fs -d "$ROOTFS_DIR" -b 131072 -L fightthemachine "$RAW_IMAGE"
+genext2fs -d "$ROOTFS_DIR" -b "$IMAGE_BLOCKS" -L fightthemachine "$RAW_IMAGE"
 
 # ============================================================================
 # Step 6: Convert to QCOW2
