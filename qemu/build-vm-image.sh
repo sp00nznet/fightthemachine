@@ -104,10 +104,11 @@ apk add --no-cache \
     libx11-dev \
     libxext-dev
 
-# Build psdoom-ng
+# Build psdoom-ng - use tarball instead of git (faster, more reliable in chroot)
 cd /tmp
-git clone --depth 1 https://github.com/orsonteodoro/psdoom-ng.git
-cd psdoom-ng/trunk
+curl -fsSL https://github.com/orsonteodoro/psdoom-ng/archive/refs/heads/master.tar.gz -o psdoom-ng.tar.gz
+tar -xzf psdoom-ng.tar.gz
+cd psdoom-ng-master/trunk
 ./autogen.sh
 ./configure --disable-sdlnet
 touch src/psdoom-ng.desktop
