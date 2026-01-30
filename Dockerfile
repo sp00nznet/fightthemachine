@@ -9,13 +9,16 @@ FROM debian:12-slim AS builder
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Enable non-free repository
-RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
+# Enable non-free repository and remove duplicate sources
+RUN rm -f /etc/apt/sources.list.d/* && \
+    echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
     echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list && \
     echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list
 
-# Install build dependencies only
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install build dependencies - clean cache to avoid disk space issues
+RUN rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     git \
     autoconf \
@@ -29,7 +32,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libx11-dev \
     libxext-dev \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && apt-get clean \
+    && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Copy patch script
 COPY patches/add-sudo-cheat.sh /tmp/add-sudo-cheat.sh
@@ -74,13 +78,16 @@ ENV VNC_PORT=5900
 ENV NOVNC_PORT=6080
 ENV RESOLUTION=1024x768
 
-# Enable non-free repository for doom-wad-shareware
-RUN echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
+# Enable non-free repository and remove duplicate sources
+RUN rm -f /etc/apt/sources.list.d/* && \
+    echo "deb http://deb.debian.org/debian bookworm main contrib non-free" > /etc/apt/sources.list && \
     echo "deb http://deb.debian.org/debian bookworm-updates main contrib non-free" >> /etc/apt/sources.list && \
     echo "deb http://deb.debian.org/debian-security bookworm-security main contrib non-free" >> /etc/apt/sources.list
 
-# Install runtime dependencies only (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install runtime dependencies - clean cache to avoid disk space issues
+RUN rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
     # X11 and display
     xvfb \
     x11vnc \
@@ -105,7 +112,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # DOOM shareware WAD
     doom-wad-shareware \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    && rm -rf /var/cache/apt/archives/* /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Create game user
 RUN useradd -m -s /bin/bash doom && \
