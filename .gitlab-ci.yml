@@ -253,10 +253,10 @@ build:win32-qemu:
     - if: $CI_COMMIT_BRANCH == "main"
 
 # =============================================================================
-# Native Windows Port Build (Windows runner with MSYS2)
+# Native Windows Port Build - Process Library (Windows runner with MSYS2)
 # =============================================================================
 
-build:win32-native:
+build:win32-native-lib:
   stage: build
   tags:
     - windows
@@ -265,7 +265,7 @@ build:win32-native:
     CMAKE_BUILD_TYPE: Release
     MSYSTEM: MINGW64
   cache:
-    key: win32-native-${CI_COMMIT_REF_SLUG}
+    key: win32-native-lib-${CI_COMMIT_REF_SLUG}
     paths:
       - native/build/
   before_script:
@@ -296,13 +296,13 @@ build:win32-native:
         $env:CHERE_INVOKING = "1"
         $bash = "$env:MSYS2_PATH\usr\bin\bash.exe"
         $projectPath = ($env:CI_PROJECT_DIR -replace '\\','/') -replace '^([A-Za-z]):','/$1'.ToLower()
-        # Install required MSYS2 packages (cmake, gcc, make) - use --overwrite for existing files
+        # Install required MSYS2 packages - use --overwrite for existing files
         & $bash --login -c "pacman -S --noconfirm --needed --overwrite '*' mingw-w64-x86_64-cmake mingw-w64-x86_64-gcc make"
-        # Build using MINGW64 environment
+        # Build process library using MINGW64 environment
         & $bash --login -c "export MSYSTEM=MINGW64 && source /etc/profile && cd $projectPath/native && ./build-msys2.sh"
       }
   artifacts:
-    name: "fightthemachine-native-$CI_COMMIT_SHORT_SHA"
+    name: "fightthemachine-native-lib-$CI_COMMIT_SHORT_SHA"
     paths:
       - native/build/*.exe
       - native/build/*.zip
@@ -310,6 +310,97 @@ build:win32-native:
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   allow_failure: true  # MSYS2 may not be installed on all runners
+
+# =============================================================================
+# Native Windows Port Build - Full psDoom-ng (Windows runner with MSYS2)
+# Builds native Windows psdoom-ng that kills REAL Windows processes
+# =============================================================================
+
+build:win32-native-psdoom:
+  stage: build
+  tags:
+    - windows
+    - shell
+  variables:
+    CMAKE_BUILD_TYPE: Release
+    MSYSTEM: MINGW64
+  cache:
+    key: win32-native-psdoom-${CI_COMMIT_REF_SLUG}
+    paths:
+      - native/psdoom-win32/build/
+      - psdoom-ng-src/
+  before_script:
+    # Check for MSYS2
+    - |
+      $msys2Paths = @(
+        "C:\msys64",
+        "C:\tools\msys64",
+        "$env:USERPROFILE\msys64"
+      )
+      $msys2 = $null
+      foreach ($p in $msys2Paths) {
+        if (Test-Path "$p\usr\bin\bash.exe") {
+          $msys2 = $p
+          Write-Host "Found MSYS2 at: $p"
+          break
+        }
+      }
+      if (-not $msys2) {
+        Write-Host "MSYS2 not found, skipping native psdoom build"
+        exit 0
+      }
+      $env:MSYS2_PATH = $msys2
+  script:
+    - |
+      if ($env:MSYS2_PATH) {
+        $env:MSYSTEM = "MINGW64"
+        $env:CHERE_INVOKING = "1"
+        $bash = "$env:MSYS2_PATH\usr\bin\bash.exe"
+        $projectPath = ($env:CI_PROJECT_DIR -replace '\\','/') -replace '^([A-Za-z]):','/$1'.ToLower()
+        # Install required MSYS2 packages including SDL
+        & $bash --login -c "pacman -S --noconfirm --needed --overwrite '*' mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-SDL mingw-w64-x86_64-SDL_mixer mingw-w64-x86_64-SDL_net mingw-w64-x86_64-libpng git make"
+        # Build native psDoom-ng using MINGW64 environment
+        & $bash --login -c "export MSYSTEM=MINGW64 && source /etc/profile && cd $projectPath/native/psdoom-win32 && chmod +x build-windows.sh && ./build-windows.sh --clean"
+      }
+    # Package the build
+    - |
+      if (Test-Path "native\psdoom-win32\build\psdoom-ng.exe") {
+        $packageDir = "dist\FightTheMachine-Native"
+        New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+        Copy-Item "native\psdoom-win32\build\psdoom-ng.exe" $packageDir
+        Copy-Item "wad\*.wad" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "native\psdoom-win32\README.md" "$packageDir\README-NATIVE.md"
+        # Create launcher batch file
+        @"
+@echo off
+echo ============================================
+echo  Fight the Machine - Native Windows Port
+echo ============================================
+echo.
+echo WARNING: This will kill REAL Windows processes!
+echo Safe mode is enabled by default.
+echo.
+echo Press any key to start, or Ctrl+C to cancel...
+pause > nul
+psdoom-ng.exe -iwad DOOM1.WAD -file psdoom1.wad -window
+"@ | Out-File -FilePath "$packageDir\run.bat" -Encoding ASCII
+        # Create ZIP
+        $zipPath = "dist\FightTheMachine-Native-$env:CI_COMMIT_SHORT_SHA.zip"
+        Compress-Archive -Path "$packageDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+        Write-Host "Created package: $zipPath"
+      } else {
+        Write-Host "psdoom-ng.exe not found, build may have failed"
+      }
+  artifacts:
+    name: "fightthemachine-native-psdoom-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - native/psdoom-win32/build/psdoom-ng.exe
+      - dist/FightTheMachine-Native-*.zip
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  allow_failure: true  # MSYS2 and SDL may not be installed on all runners
 
 # =============================================================================
 # Tests (Linux runner with Docker - uses host Docker)
@@ -401,6 +492,7 @@ package:release:
     - cp win32/build/Release/WebView2Loader.dll release/ || true
     - cp dist/FightTheMachine-QEMU-*.zip release/ || true
     - cp native/build/*.zip release/ || true
+    - cp dist/FightTheMachine-Native-*.zip release/ || true
   artifacts:
     name: "fightthemachine-release-$CI_COMMIT_SHORT_SHA"
     paths:
@@ -410,7 +502,9 @@ package:release:
     - build:win32
     - job: build:win32-qemu
       optional: true
-    - job: build:win32-native
+    - job: build:win32-native-lib
+      optional: true
+    - job: build:win32-native-psdoom
       optional: true
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
