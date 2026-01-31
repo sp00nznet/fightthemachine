@@ -371,19 +371,20 @@ build:win32-native-psdoom:
         Copy-Item "wad\*.wad" $packageDir -ErrorAction SilentlyContinue
         Copy-Item "native\psdoom-win32\README.md" "$packageDir\README-NATIVE.md"
         # Create launcher batch file
-        @"
-@echo off
-echo ============================================
-echo  Fight the Machine - Native Windows Port
-echo ============================================
-echo.
-echo WARNING: This will kill REAL Windows processes!
-echo Safe mode is enabled by default.
-echo.
-echo Press any key to start, or Ctrl+C to cancel...
-pause > nul
-psdoom-ng.exe -iwad DOOM1.WAD -file psdoom1.wad -window
-"@ | Out-File -FilePath "$packageDir\run.bat" -Encoding ASCII
+        $batContent = @(
+          '@echo off',
+          'echo ============================================',
+          'echo  Fight the Machine - Native Windows Port',
+          'echo ============================================',
+          'echo.',
+          'echo WARNING: This will kill REAL Windows processes!',
+          'echo Safe mode is enabled by default.',
+          'echo.',
+          'echo Press any key to start, or Ctrl+C to cancel...',
+          'pause > nul',
+          'psdoom-ng.exe -iwad DOOM1.WAD -file psdoom1.wad -window'
+        ) -join "`r`n"
+        $batContent | Out-File -FilePath "$packageDir\run.bat" -Encoding ASCII
         # Create ZIP
         $zipPath = "dist\FightTheMachine-Native-$env:CI_COMMIT_SHORT_SHA.zip"
         Compress-Archive -Path "$packageDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
