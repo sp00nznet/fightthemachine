@@ -26,10 +26,10 @@
 #define HAVE_SYS_TYPES_H 1
 #define HAVE_SYS_STAT_H 1
 
-/* Functions */
-#define HAVE_MMAP 0
-#define HAVE_IOPERM 0
-#define HAVE_SCHED_SETAFFINITY 0
+/* Functions - don't define HAVE_MMAP on Windows (we use win32 file API) */
+/* #undef HAVE_MMAP */
+/* #undef HAVE_IOPERM */
+/* #undef HAVE_SCHED_SETAFFINITY */
 
 /* Libraries - these are detected by CMake */
 #define HAVE_LIBSDL 1
