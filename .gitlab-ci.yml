@@ -367,28 +367,38 @@ build:win32-native-psdoom:
       if (Test-Path "native\psdoom-win32\build\psdoom-ng.exe") {
         $packageDir = "dist\FightTheMachine-Native"
         New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
+
+        # Copy main executable
         Copy-Item "native\psdoom-win32\build\psdoom-ng.exe" $packageDir
+
+        # Copy SDL DLLs from MSYS2
+        $mingwBin = "$env:MSYS2_PATH\mingw64\bin"
+        Copy-Item "$mingwBin\SDL.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\SDL_mixer.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\libSDL_mixer-1-2-0.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\SDL_net.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\libpng16-16.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\zlib1.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\libgcc_s_seh-1.dll" $packageDir -ErrorAction SilentlyContinue
+        Copy-Item "$mingwBin\libwinpthread-1.dll" $packageDir -ErrorAction SilentlyContinue
+
+        # Download shareware DOOM1.WAD
+        Write-Host "Downloading DOOM1.WAD shareware..."
+        Invoke-WebRequest -Uri "https://distro.ibiblio.org/slitaz/sources/packages/d/doom1.wad" -OutFile "$packageDir\DOOM1.WAD"
+
+        # Copy psdoom WADs
         Copy-Item "wad\*.wad" $packageDir -ErrorAction SilentlyContinue
-        Copy-Item "native\psdoom-win32\README.md" "$packageDir\README-NATIVE.md"
-        # Create launcher batch file
-        $batContent = @(
-          '@echo off',
-          'echo ============================================',
-          'echo  Fight the Machine - Native Windows Port',
-          'echo ============================================',
-          'echo.',
-          'echo WARNING: This will kill REAL Windows processes!',
-          'echo Safe mode is enabled by default.',
-          'echo.',
-          'echo Press any key to start, or Ctrl+C to cancel...',
-          'pause > nul',
-          'psdoom-ng.exe -iwad DOOM1.WAD -file psdoom1.wad -window'
-        ) -join "`r`n"
-        $batContent | Out-File -FilePath "$packageDir\run.bat" -Encoding ASCII
+
+        # Copy config file and launcher
+        Copy-Item "native\psdoom-win32\psdoom.cfg" $packageDir
+        Copy-Item "native\psdoom-win32\run-psdoom.bat" $packageDir
+        Copy-Item "native\psdoom-win32\README.md" "$packageDir\README.md"
+
         # Create ZIP
         $zipPath = "dist\FightTheMachine-Native-$env:CI_COMMIT_SHORT_SHA.zip"
         Compress-Archive -Path "$packageDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
         Write-Host "Created package: $zipPath"
+        Get-ChildItem $packageDir
       } else {
         Write-Host "psdoom-ng.exe not found, build may have failed"
       }
