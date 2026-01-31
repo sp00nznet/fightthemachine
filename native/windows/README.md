@@ -57,13 +57,15 @@ Disable at your own risk.
 
 ## Protected Processes
 
-These system processes are **always protected**:
+These processes are **always protected** (Cyberdemon tier - cannot be killed):
 
 | Category | Processes |
 |----------|-----------|
 | Windows Core | `system`, `smss.exe`, `csrss.exe`, `wininit.exe`, `services.exe`, `lsass.exe`, `svchost.exe` |
 | Windows Shell | `explorer.exe`, `dwm.exe` |
 | Security | `msmpeng.exe`, `securityhealthservice.exe` |
+| This Game | `fightthemachine.exe`, `psdoom-ng.exe` |
+| Claude | `claude.exe` - *helped build this project* |
 
 ---
 
