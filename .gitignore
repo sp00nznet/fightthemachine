@@ -1,5 +1,7 @@
 # Build outputs
-win32/build/
+build/
+*/build/
+*/*/build/
 *.exe
 *.dll
 *.obj
@@ -11,10 +13,10 @@ win32/build/
 # IDE files
 .vs/
 .vscode/
+.idea/
 *.suo
 *.user
 *.sln.docstates
-.idea/
 
 # CMake
 CMakeCache.txt
@@ -24,12 +26,12 @@ Makefile
 
 # Logs
 *.log
-build.log
 
 # OS files
 .DS_Store
 Thumbs.db
 desktop.ini
+nul
 
 # Docker
 .docker/
@@ -38,3 +40,20 @@ desktop.ini
 *.tmp
 *.temp
 *~
+
+# Source checkouts (downloaded during build)
+psdoom-ng-src/
+chocolate-doom-*/
+
+# WAD files (downloaded during build)
+DOOM1.WAD
+freedoom*.wad
+
+# Package outputs
+*.zip
+_CPack_Packages/
+
+# Config files (user-specific)
+default.cfg
+doom.cfg
+*.cfg.bak

@@ -1,56 +1,79 @@
-# Fight the Machine - Win32 Native Client
+# Fight the Machine - Win32 QEMU Client
 
-A native Windows application that provides a seamless interface to the Fight the Machine game running in Docker.
+**Native Windows app that runs psDoom in a QEMU virtual machine.**
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      WINDOWS HOST                                 │
+│                                                                   │
+│  fightthemachine.exe                                             │
+│        │                                                          │
+│        └── WebView2 ──▶ QEMU VM ──▶ psDoom-ng                    │
+│                              │                                    │
+│                              ▼                                    │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                    QEMU LINUX VM                            │  │
+│  │                                                             │  │
+│  │   psDoom-ng ──▶ Process Respawner ──▶ File Spawner         │  │
+│  │                       │                                     │  │
+│  │                 ┌─────┴─────┐                               │  │
+│  │                 ▼           ▼                               │  │
+│  │              cat vim     python top                         │  │
+│  │            (zombie)      (imp)                              │  │
+│  │                                                             │  │
+│  │   Kill monster ──▶ Process dies ──▶ Respawns after delay   │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  Your Windows processes are completely safe!                     │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Safe mode** - processes only die inside the QEMU virtual machine.
+
+---
 
 ## Features
 
-- Native Windows 10/11 application
-- Embedded WebView2 browser for noVNC display
-- Automatic Docker container management
-- Fullscreen support (F11)
-- DPI-aware and modern Windows styling
+- **Process Respawner** - killed processes respawn based on enemy tier
+- **File Spawner** - dynamically creates processes for the game
+- Native Windows GUI wrapper
+- Embedded QEMU virtual machine
+
+---
 
 ## Requirements
 
-- Windows 10 version 1809 or later
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (usually pre-installed on Windows 10/11)
-- Visual Studio 2019/2022 with C++ workload (for building)
+- Windows 10 version 1809+
+- QEMU for Windows (bundled or installed separately)
+- [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (usually pre-installed)
+
+---
 
 ## Building
-
-### Quick Build
 
 ```batch
 cd win32
 build.bat release
 ```
 
-### Manual Build with CMake
+Or with CMake:
 
 ```powershell
-cd win32
-mkdir build
-cd build
+mkdir build && cd build
 cmake -G "Visual Studio 17 2022" -A x64 ..
 cmake --build . --config Release
 ```
 
-### Build Options
-
-```batch
-build.bat clean          # Clean build directory
-build.bat release        # Build Release version
-build.bat package        # Build and create installer
-build.bat clean release  # Clean then build Release
-```
+---
 
 ## Usage
 
-1. Ensure Docker Desktop is running
-2. Run `fightthemachine.exe`
-3. Wait for the loading screen (container is starting)
-4. Play DOOM!
+1. Run `fightthemachine.exe`
+2. Wait for VM to boot
+3. Play DOOM - kill monsters, kill VM processes
+4. Processes respawn after delay
+
+---
 
 ## Controls
 
@@ -58,60 +81,20 @@ build.bat clean release  # Clean then build Release
 |-----|--------|
 | Arrow Keys | Move |
 | Ctrl | Fire |
-| Space | Open doors/Use |
-| Alt | Strafe |
+| Space | Open doors |
 | F11 | Toggle fullscreen |
 | ESC | Exit fullscreen |
 
-## Architecture
+---
 
-```
-fightthemachine.exe
-    │
-    ├── WebView2 (Embedded Edge browser)
-    │       │
-    │       └── noVNC (HTML5 VNC client)
-    │               │
-    │               └── http://localhost:6080
-    │
-    └── Docker Management
-            │
-            └── fightthemachine container
-                    │
-                    ├── x11vnc (VNC server)
-                    ├── Xvfb (Virtual display)
-                    └── psDoom-ng (Game engine)
-```
+## Credits
 
-## Files
+Built on open source foundations:
 
-| File | Description |
-|------|-------------|
-| `main.cpp` | Main application source |
-| `resource.h` | Resource identifiers |
-| `app.rc` | Resource script (icon, version info) |
-| `app.manifest` | Application manifest (DPI, styling) |
-| `CMakeLists.txt` | CMake build configuration |
-| `build.ps1` | PowerShell build script |
-| `build.bat` | Batch build wrapper |
+- **[DOOM](https://github.com/id-Software/DOOM)** - id Software (1993)
+- **[Chocolate Doom](https://www.chocolate-doom.org/)** - Simon Howard
+- **[psDoom](http://psdoom.sourceforge.net/)** - Dennis Chao (1999)
+- **[psDoom-ng](https://github.com/orsonteodoro/psdoom-ng)** - Orson Teodoro
+- **[QEMU](https://www.qemu.org/)** - Fabrice Bellard
 
-## Dependencies
-
-- [Microsoft WebView2](https://developer.microsoft.com/microsoft-edge/webview2/) - Embedded browser
-- [Windows Implementation Libraries (WIL)](https://github.com/microsoft/wil) - COM helpers
-
-Both dependencies are automatically downloaded via CMake FetchContent.
-
-## Troubleshooting
-
-### "Docker Desktop is not running"
-Start Docker Desktop and wait for it to fully initialize before running the application.
-
-### "Failed to initialize WebView2"
-Install the [WebView2 Runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/).
-
-### Container fails to start
-Check Docker Desktop logs and ensure you have enough disk space and memory allocated.
-
-### Black screen in game
-The container may still be initializing. Wait a few more seconds for psDoom-ng to start.
+**GPL v2 License** - Free and open source software.

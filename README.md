@@ -15,45 +15,155 @@
               ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝
 ```
 
-> **Kill processes as DOOM monsters - in your browser.**
-
-Fight the Machine runs [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) in a Docker container with HTML5 browser access. No installation required - just Docker and a web browser.
+**Kill processes by killing DOOM monsters.**
 
 ---
 
-## Quick Start
+## What Is This?
 
-```bash
-# Linux/Mac
-./run.sh
-```
+Fight the Machine turns your running processes into DOOM monsters. Kill the monster, kill the process. It's that simple.
 
-```batch
-# Windows
-run.bat
-```
-
-**Windows (Native App):**
-- [Win32 client](win32/) - Native desktop wrapper for the Docker container
-- **[Native Windows Port](native/psdoom-win32/)** - **Kills REAL Windows processes!** (no Docker required)
-
-Then open **http://localhost:6080** in your browser.
+| Build | What Gets Killed | Features | Safety |
+|-------|------------------|----------|--------|
+| [Native Windows](#native-windows) | Real Windows processes | Direct, fast, no VM | Dangerous |
+| [Win32 QEMU](#win32-qemu-client) | VM processes only | Respawner, File Spawner | Safe |
 
 ---
 
-## How It Works
+## Project Structure
 
-Every running process in the container becomes a DOOM monster. **Kill the monster = kill the process.**
+```
+fightthemachine/
+│
+├── native/                 # Native Windows builds
+│   └── windows/               # Native Windows port (DANGEROUS)
+│       ├── CMakeLists.txt         # CMake build config
+│       ├── pr_process.c           # Windows process API
+│       ├── build-windows.sh       # MSYS2 build script
+│       ├── fightthemachine.cfg    # User config file
+│       ├── run.bat                # Launcher
+│       └── README.md
+│
+├── win32/                  # Win32 QEMU client (SAFE)
+│   ├── main.cpp               # WebView2 GUI wrapper
+│   ├── CMakeLists.txt         # Build config
+│   └── README.md
+│
+├── qemu/                   # QEMU VM build scripts
+│   ├── build-vm-image.sh      # Creates bootable Linux VM
+│   ├── package-windows.ps1    # Windows packaging script
+│   └── vm-init.sh             # VM initialization
+│
+├── wad/                    # DOOM level data
+│   ├── psdoom1.wad            # Process spawn levels
+│   ├── psdoom2.wad
+│   └── xdoom.wad
+│
+├── patches/                # Source patches
+│   └── add-sudo-cheat.sh      # Adds 'sudo' cheat code
+│
+└── archive/                # Legacy/historical files
+```
 
-| Monster | Process Type | Example |
-|---------|--------------|---------|
-| Zombieman | Trivial processes | `cat`, `sleep`, `echo` |
-| Imp | User applications | `vim`, `python`, `grep` |
-| Demon | Desktop processes | Window managers |
-| Cacodemon | System daemons | `cron`, networking |
-| Baron of Hell | Critical services | `init`, X server |
+---
 
-Processes only die inside the container - your host system is completely safe.
+## Native Windows
+
+**DANGEROUS** - Kills real Windows processes using `TerminateProcess` API.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      WINDOWS DESKTOP                              │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                   fightthemachine.exe                       │  │
+│  │                      (SDL 1.2)                              │  │
+│  └───────────────────────────┬────────────────────────────────┘  │
+│                              │                                    │
+│              ┌───────────────┼───────────────┐                    │
+│              │               │               │                    │
+│              ▼               ▼               ▼                    │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐         │
+│  │ Toolhelp32    │  │ TerminateProc │  │ Process       │         │
+│  │ Snapshot      │  │ API           │  │ Blacklist     │         │
+│  │               │  │               │  │               │         │
+│  │ Enumerates    │  │ Kills real    │  │ Protects      │         │
+│  │ all running   │  │ Windows       │  │ critical      │         │
+│  │ processes     │  │ processes     │  │ system procs  │         │
+│  └───────────────┘  └───────────────┘  └───────────────┘         │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                    RUNNING PROCESSES                        │  │
+│  │                                                             │  │
+│  │  notepad.exe    chrome.exe    discord.exe    spotify.exe   │  │
+│  │   (zombie)       (demon)       (demon)      (cacodemon)    │  │
+│  │                                                             │  │
+│  │  explorer.exe   svchost.exe   csrss.exe     lsass.exe     │  │
+│  │  (PROTECTED)    (PROTECTED)   (PROTECTED)   (PROTECTED)    │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  NO RESPAWNER - killed processes stay dead!                      │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Quick Start
+
+1. Download the release ZIP
+2. Extract and run `run.bat`
+3. Kill monsters = Kill real processes
+
+See [native/windows/README.md](native/windows/README.md) for build instructions.
+
+---
+
+## Win32 QEMU Client
+
+**Safe** - Runs psDoom in a Linux virtual machine. Processes die inside the VM only.
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                      WINDOWS HOST                                 │
+│                                                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                  fightthemachine.exe                        │  │
+│  │                  (Win32 GUI + WebView2)                     │  │
+│  └───────────────────────────┬────────────────────────────────┘  │
+│                              │                                    │
+│                              ▼                                    │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │                      QEMU VM                                │  │
+│  │                                                             │  │
+│  │  ┌──────────────────────────────────────────────────────┐  │  │
+│  │  │                  Linux Guest                          │  │  │
+│  │  │                                                       │  │  │
+│  │  │   ┌─────────────┐    ┌─────────────────────────────┐ │  │  │
+│  │  │   │ psDoom-ng   │───▶│    Process Respawner        │ │  │  │
+│  │  │   │             │    │                             │ │  │  │
+│  │  │   │  Kill       │    │  ┌─────┐ ┌─────┐ ┌─────┐   │ │  │  │
+│  │  │   │  Monster ───────▶│  │ cat │ │ vim │ │ top │   │ │  │  │
+│  │  │   │             │    │  └─────┘ └─────┘ └─────┘   │ │  │  │
+│  │  │   └─────────────┘    │                             │ │  │  │
+│  │  │                      │  Process dies, respawns     │ │  │  │
+│  │  │                      └─────────────────────────────┘ │  │  │
+│  │  │                                                       │  │  │
+│  │  │   File Spawner creates new processes dynamically     │  │  │
+│  │  │                                                       │  │  │
+│  │  └──────────────────────────────────────────────────────┘  │  │
+│  │                                                             │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  Your Windows processes are completely safe!                     │
+│                                                                   │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Features:
+- **Process Respawner** - killed processes respawn after a delay based on enemy tier
+- **File Spawner** - creates processes dynamically for the game
+- Native Windows GUI wrapper with WebView2
+
+See [win32/README.md](win32/README.md) for build instructions and [qemu/](qemu/) for VM build scripts.
 
 ---
 
@@ -68,87 +178,55 @@ Processes only die inside the container - your host system is completely safe.
 | `Tab` | Automap |
 | `Esc` | Menu |
 
----
-
 ## Cheat Codes
-
-Just like the original DOOM, you can type cheat codes during gameplay:
 
 | Cheat | Effect |
 |-------|--------|
-| `iddqd` | God mode (invincibility) |
-| `idkfa` | All weapons, ammo, and keys |
-| `idfa` | All weapons and ammo (no keys) |
-| `idclip` | No-clip (walk through walls) |
-| `iddt` | Reveal map (press twice for full reveal) |
-| **`sudo`** | **God mode + full arsenal** (IDDQD + IDKFA combined) |
-
-The `sudo` cheat is a Fight the Machine exclusive - because in Unix, `sudo` gives you root powers.
+| `sudo` | God mode + all weapons (Fight the Machine exclusive) |
+| `iddqd` | God mode |
+| `idkfa` | All weapons and ammo |
+| `idclip` | Walk through walls |
 
 ---
 
-## Commands
+## Process → Monster Mapping
 
-```bash
-./run.sh start    # Start the container (default)
-./run.sh stop     # Stop the container
-./run.sh restart  # Restart the container
-./run.sh logs     # View container logs
-./run.sh status   # Check if running
-./run.sh build    # Rebuild the image
-```
-
----
-
-## Requirements
-
-- **Docker** with Docker Compose
-- A modern **web browser**
-- That's it.
+| Monster | Health | Process Type | Examples |
+|---------|--------|--------------|----------|
+| Zombieman | Low | Trivial | `notepad`, `calc`, `mspaint` |
+| Imp | Medium | Dev tools | `code`, `node`, `python` |
+| Demon | High | Apps | `chrome`, `firefox`, `discord` |
+| Cacodemon | Higher | Services | `dropbox`, `steam`, `spotify` |
+| Baron of Hell | Boss | Office | `outlook`, `excel`, `winword` |
+| Cyberdemon | Invincible | PROTECTED | `explorer`, `svchost`, `csrss` |
 
 ---
 
-## Ports
+## Credits & Acknowledgments
 
-| Port | Description |
-|------|-------------|
-| `6080` | HTML5 web interface (noVNC) |
-| `5900` | VNC direct access (optional) |
+**This project stands on the shoulders of giants.**
+
+Fight the Machine is built entirely on open source software. We don't own any of the underlying technology - we're just building on the amazing work of others:
+
+| Project | Author | What It Is |
+|---------|--------|------------|
+| [DOOM](https://github.com/id-Software/DOOM) | id Software (1993) | The legendary game that started it all |
+| [Chocolate Doom](https://www.chocolate-doom.org/) | Simon Howard | Faithful cross-platform DOOM source port |
+| [psDoom](http://psdoom.sourceforge.net/) | Dennis Chao (1999) | The original "kill processes in DOOM" concept |
+| [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) | Orson Teodoro | Modern psDoom port based on Chocolate Doom |
+| [psDoom-ng fork](https://github.com/keymon/psdoom-ng) | keymon | Additional psDoom-ng development |
+
+**All of this is free and open source software under the GPL v2 license.**
+
+We encourage you to explore these projects, contribute to them, and build your own cool stuff!
 
 ---
 
-## Windows Options
+## License
 
-### Option 1: Win32 Client (Safe - Docker Container)
+This project is licensed under **GPL v2** - the same license as DOOM, Chocolate Doom, and psDoom-ng.
 
-A native Windows desktop application that wraps the Docker container. Processes are killed inside the container only - your system is safe.
-
-```batch
-cd win32
-build.bat release
-```
-
-See [win32/README.md](win32/README.md) for build instructions.
-
-### Option 2: Native Windows Port (Dangerous - Real Processes!)
-
-A true native Windows port that kills **REAL Windows processes** using the Windows API. No Docker required.
-
-```bash
-# In MSYS2 MINGW64 terminal:
-cd native/psdoom-win32
-./build-windows.sh
-```
-
-**Features:**
-- Uses `TerminateProcess` to kill real Windows processes
-- Protected system process blacklist (explorer.exe, svchost.exe, etc.)
-- Safe mode option (only kills notepad.exe, calc.exe, mspaint.exe by default)
-- No container or virtualization - native Windows executable
-
-See [native/psdoom-win32/README.md](native/psdoom-win32/README.md) for details.
-
-**Warning:** This can kill actual processes on your Windows system. Use at your own risk!
+**This is free software.** You are free to use, modify, and distribute it under the terms of the GPL v2.
 
 ---
 
@@ -159,90 +237,4 @@ See [native/psdoom-win32/README.md](native/psdoom-win32/README.md) for details.
 
 ---
 
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Your Browser                            │
-│                     http://localhost:6080                       │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │ WebSocket
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Docker Container                           │
-│                                                                 │
-│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌───────────┐   │
-│   │  noVNC  │───▶│ x11vnc  │───▶│  Xvfb   │◀───│ psDoom-ng │   │
-│   │ (HTML5) │    │  (VNC)  │    │  (X11)  │    │  (game)   │   │
-│   └─────────┘    └─────────┘    └─────────┘    └─────┬─────┘   │
-│                                                      │         │
-│   ┌────────────────┐                                 │         │
-│   │    Process     │◀────────────────────────────────┘         │
-│   │   Respawner    │   kills process → monster dies            │
-│   └────────────────┘   respawns process → monster returns      │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Technical Details
-
-### Engine: psDoom-ng
-
-Fight the Machine uses **psDoom-ng**, a modern port based on **Chocolate Doom**. This replaced the original XDoom-based psDoom client for several reasons:
-
-| Feature | Original psDoom (XDoom) | psDoom-ng (Chocolate Doom) |
-|---------|------------------------|---------------------------|
-| Stability | Frequent crashes | Rock solid |
-| Compatibility | 32-bit only, old libs | Modern 64-bit systems |
-| Accuracy | Modified behavior | Vanilla DOOM accurate |
-| Maintenance | Abandoned (2000) | Actively maintained |
-
-The migration involved resolving build issues, WAD compatibility, and display scaling - all handled automatically by the Docker build.
-
-### Process Respawner
-
-Killed processes respawn after a delay based on their enemy tier:
-
-| Enemy Tier | Respawn Delay |
-|------------|---------------|
-| Zombieman | 5-10 seconds |
-| Imp | 8-15 seconds |
-| Demon | 12-20 seconds |
-| Cacodemon | 15-25 seconds |
-| Baron of Hell | 20-30 seconds |
-
-This keeps the game interesting - you can never truly "win" against the machine.
-
----
-
-## Documentation
-
-See [DOCUMENTATION.md](DOCUMENTATION.md) for:
-- Configuration options
-- Environment variables
-- Troubleshooting guide
-- Manual build instructions
-
----
-
-## Credits
-
-- **[psDoom](http://psdoom.sourceforge.net/)** - Dennis Chao (original 1999)
-- **[psDoom-ng](https://github.com/orsonteodoro/psdoom-ng)** - Orson Teodoro (Chocolate Doom port)
-- **[Chocolate Doom](https://www.chocolate-doom.org/)** - Vanilla DOOM source port
-- **[noVNC](https://novnc.com/)** - HTML5 VNC client
-- **[id Software](https://www.idsoftware.com/)** - DOOM (1993)
-
----
-
-## License
-
-This project is public domain. The game engine (psDoom-ng/Chocolate Doom) is GPL. DOOM WAD is shareware.
-
----
-
-<p align="center">
-  <i>RIP AND TEAR, UNTIL IT IS DONE.</i>
-</p>
+<p align="center"><i>RIP AND TEAR, UNTIL IT IS DONE.</i></p>
