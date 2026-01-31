@@ -14,23 +14,27 @@
 #include <string.h>
 #include <stdio.h>
 
+/* Include Doom headers first to define boolean before Windows does */
+#include "doomstat.h"
+#include "info.h"
+#include "doomdef.h"
+#include "pr_process.h"
+
 #if defined(_WIN32) || defined(_WIN64)
+/* Prevent Windows from redefining boolean - it's already defined by Doom */
+#define boolean win_boolean_unused
 /* Windows-specific headers */
 #include <windows.h>
 #include <tlhelp32.h>
 #include <psapi.h>
 #include <io.h>
+#undef boolean
 #define popen _popen
 #define pclose _pclose
 #else
 /* Unix-specific headers */
 #include <unistd.h>
 #endif
-
-#include "doomstat.h"
-#include "info.h"
-#include "doomdef.h"
-#include "pr_process.h"
 
 #if defined(SCOOS5) || defined(SCOUW2) || defined(SCOUW7)
 #include "strcmp.h"

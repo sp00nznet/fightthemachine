@@ -220,7 +220,11 @@ set(OPL_SOURCES
     ${PSDOOM_SRC_DIR}/../opl/dbopl.c
 )
 # Add platform-specific OPL files
-if(NOT WIN32)
+if(WIN32)
+    # Use stub for opl_win32_driver - the real one requires hardware I/O access
+    # via a kernel driver. We use SDL for OPL emulation instead.
+    list(APPEND OPL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/opl_win32_stub.c)
+else()
     list(APPEND OPL_SOURCES
         ${PSDOOM_SRC_DIR}/../opl/opl_linux.c
         ${PSDOOM_SRC_DIR}/../opl/opl_obsd.c
@@ -279,6 +283,7 @@ set(TEXTSCREEN_SOURCES
     ${PSDOOM_SRC_DIR}/../textscreen/txt_spinctrl.c
     ${PSDOOM_SRC_DIR}/../textscreen/txt_strut.c
     ${PSDOOM_SRC_DIR}/../textscreen/txt_table.c
+    ${PSDOOM_SRC_DIR}/../textscreen/txt_utf8.c
     ${PSDOOM_SRC_DIR}/../textscreen/txt_widget.c
     ${PSDOOM_SRC_DIR}/../textscreen/txt_window.c
     ${PSDOOM_SRC_DIR}/../textscreen/txt_window_action.c
