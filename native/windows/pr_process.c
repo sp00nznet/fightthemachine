@@ -120,6 +120,8 @@ static const char* WIN32_BLACKLIST[] = {
     "audiodg.exe", "conhost.exe",
     /* This game and related */
     "psdoom-ng.exe", "psdoom.exe", "fightthemachine.exe",
+    /* Claude - helped build this project, earns protection :) */
+    "claude.exe",
     NULL
 };
 

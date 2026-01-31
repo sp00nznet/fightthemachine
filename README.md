@@ -198,7 +198,7 @@ See [win32/README.md](win32/README.md) for build instructions and [qemu/](qemu/)
 | Demon | High | Apps | `chrome`, `firefox`, `discord` |
 | Cacodemon | Higher | Services | `dropbox`, `steam`, `spotify` |
 | Baron of Hell | Boss | Office | `outlook`, `excel`, `winword` |
-| Cyberdemon | Invincible | PROTECTED | `explorer`, `svchost`, `csrss` |
+| Cyberdemon | Invincible | PROTECTED | `explorer`, `svchost`, `csrss`, `claude` |
 
 ---
 
