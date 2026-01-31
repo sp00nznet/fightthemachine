@@ -227,7 +227,7 @@ add_library(opl STATIC ${OPL_SOURCES})
 target_include_directories(opl PRIVATE
     ${PSDOOM_SRC_DIR}/../opl
     ${PSDOOM_SRC_DIR}
-    ${PSDOOM_SRC_DIR}/../msvc
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${SDL_INCLUDE_DIRS}
 )
 target_compile_definitions(opl PRIVATE HAVE_CONFIG_H)
@@ -246,7 +246,7 @@ add_library(pcsound STATIC ${PCSOUND_SOURCES})
 target_include_directories(pcsound PRIVATE
     ${PSDOOM_SRC_DIR}/../pcsound
     ${PSDOOM_SRC_DIR}
-    ${PSDOOM_SRC_DIR}/../msvc
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${SDL_INCLUDE_DIRS}
 )
 target_compile_definitions(pcsound PRIVATE HAVE_CONFIG_H)
@@ -279,7 +279,7 @@ add_library(textscreen STATIC ${TEXTSCREEN_SOURCES})
 target_include_directories(textscreen PRIVATE
     ${PSDOOM_SRC_DIR}/../textscreen
     ${PSDOOM_SRC_DIR}
-    ${PSDOOM_SRC_DIR}/../msvc
+    ${CMAKE_CURRENT_SOURCE_DIR}
     ${SDL_INCLUDE_DIRS}
 )
 target_compile_definitions(textscreen PRIVATE HAVE_CONFIG_H)
@@ -304,11 +304,8 @@ target_include_directories(psdoom-ng PRIVATE
     ${PNG_INCLUDE_DIRS}
 )
 
-# Use the MSVC config.h for Windows
+# Use our config.h for Windows builds
 if(WIN32)
-    target_include_directories(psdoom-ng PRIVATE
-        ${PSDOOM_SRC_DIR}/../msvc
-    )
     target_compile_definitions(psdoom-ng PRIVATE
         HAVE_CONFIG_H
     )
