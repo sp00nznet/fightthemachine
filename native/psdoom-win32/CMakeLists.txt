@@ -214,14 +214,19 @@ set(DOOM_SOURCES
 # =============================================================================
 set(OPL_SOURCES
     ${PSDOOM_SRC_DIR}/../opl/opl.c
-    ${PSDOOM_SRC_DIR}/../opl/opl_linux.c
-    ${PSDOOM_SRC_DIR}/../opl/opl_obsd.c
     ${PSDOOM_SRC_DIR}/../opl/opl_queue.c
     ${PSDOOM_SRC_DIR}/../opl/opl_sdl.c
     ${PSDOOM_SRC_DIR}/../opl/opl_timer.c
-    ${PSDOOM_SRC_DIR}/../opl/ioperm_sys.c
     ${PSDOOM_SRC_DIR}/../opl/dbopl.c
 )
+# Add platform-specific OPL files
+if(NOT WIN32)
+    list(APPEND OPL_SOURCES
+        ${PSDOOM_SRC_DIR}/../opl/opl_linux.c
+        ${PSDOOM_SRC_DIR}/../opl/opl_obsd.c
+        ${PSDOOM_SRC_DIR}/../opl/ioperm_sys.c
+    )
+endif()
 
 add_library(opl STATIC ${OPL_SOURCES})
 target_include_directories(opl PRIVATE
@@ -237,10 +242,14 @@ target_compile_definitions(opl PRIVATE HAVE_CONFIG_H)
 # =============================================================================
 set(PCSOUND_SOURCES
     ${PSDOOM_SRC_DIR}/../pcsound/pcsound.c
-    ${PSDOOM_SRC_DIR}/../pcsound/pcsound_linux.c
     ${PSDOOM_SRC_DIR}/../pcsound/pcsound_sdl.c
-    ${PSDOOM_SRC_DIR}/../pcsound/pcsound_win32.c
 )
+# Add platform-specific pcsound files
+if(WIN32)
+    list(APPEND PCSOUND_SOURCES ${PSDOOM_SRC_DIR}/../pcsound/pcsound_win32.c)
+else()
+    list(APPEND PCSOUND_SOURCES ${PSDOOM_SRC_DIR}/../pcsound/pcsound_linux.c)
+endif()
 
 add_library(pcsound STATIC ${PCSOUND_SOURCES})
 target_include_directories(pcsound PRIVATE
