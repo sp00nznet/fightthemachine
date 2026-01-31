@@ -1,4 +1,9 @@
-# Fight the Machine - Native Windows Port of psDoom-ng
+# Fight the Machine - Native Windows Build
+# Kill Windows processes by killing DOOM monsters!
+#
+# Based on psDoom-ng (https://github.com/orsonteodoro/psdoom-ng)
+# Original psDoom by Dennis Chao (http://psdoom.sourceforge.net/)
+#
 # CMake build system for Windows using MSYS2/MinGW or Visual Studio
 #
 # Prerequisites (MSYS2):
@@ -10,13 +15,9 @@
 #   mkdir build && cd build
 #   cmake -G "MSYS Makefiles" ..
 #   cmake --build . --parallel
-#
-# Or for Visual Studio:
-#   cmake -G "Visual Studio 17 2022" -A x64 ..
-#   cmake --build . --config Release
 
 cmake_minimum_required(VERSION 3.16)
-project(psdoom-ng VERSION 0.4.0 LANGUAGES C)
+project(fightthemachine VERSION 1.0.0 LANGUAGES C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -301,13 +302,13 @@ target_compile_definitions(textscreen PRIVATE HAVE_CONFIG_H)
 # =============================================================================
 # Main executable - psdoom-ng
 # =============================================================================
-add_executable(psdoom-ng WIN32
+add_executable(fightthemachine WIN32
     ${COMMON_SOURCES}
     ${DOOM_SOURCES}
 )
 
 # Include directories
-target_include_directories(psdoom-ng PRIVATE
+target_include_directories(fightthemachine PRIVATE
     ${PSDOOM_SRC_DIR}
     ${PSDOOM_SRC_DIR}/doom
     ${PSDOOM_SRC_DIR}/../opl
@@ -320,13 +321,13 @@ target_include_directories(psdoom-ng PRIVATE
 
 # Use our config.h for Windows builds
 if(WIN32)
-    target_compile_definitions(psdoom-ng PRIVATE
+    target_compile_definitions(fightthemachine PRIVATE
         HAVE_CONFIG_H
     )
 endif()
 
 # Link libraries
-target_link_libraries(psdoom-ng PRIVATE
+target_link_libraries(fightthemachine PRIVATE
     textscreen
     opl
     pcsound
@@ -339,9 +340,9 @@ target_link_libraries(psdoom-ng PRIVATE
 
 # Safe mode option
 if(ENABLE_SAFE_MODE)
-    target_compile_definitions(psdoom-ng PRIVATE PSDOOM_SAFE_MODE_DEFAULT=1)
+    target_compile_definitions(fightthemachine PRIVATE PSDOOM_SAFE_MODE_DEFAULT=1)
 else()
-    target_compile_definitions(psdoom-ng PRIVATE PSDOOM_SAFE_MODE_DEFAULT=0)
+    target_compile_definitions(fightthemachine PRIVATE PSDOOM_SAFE_MODE_DEFAULT=0)
 endif()
 
 # =============================================================================
@@ -357,11 +358,11 @@ endif()
 # =============================================================================
 # Install rules
 # =============================================================================
-install(TARGETS psdoom-ng DESTINATION bin)
+install(TARGETS fightthemachine DESTINATION bin)
 
 # Install WAD files
 install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../wad/"
-        DESTINATION share/psdoom-ng
+        DESTINATION share/fightthemachine
         FILES_MATCHING PATTERN "*.wad")
 
 # =============================================================================
@@ -370,7 +371,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../wad/"
 set(CPACK_GENERATOR "ZIP")
 set(CPACK_PACKAGE_NAME "FightTheMachine-Native")
 set(CPACK_PACKAGE_VENDOR "Fight the Machine Project")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Native Windows port of psDoom-ng - Kill real Windows processes as DOOM monsters")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Fight the Machine - Kill real Windows processes by killing DOOM monsters!")
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})

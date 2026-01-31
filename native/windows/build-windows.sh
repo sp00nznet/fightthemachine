@@ -3,8 +3,8 @@
 # Fight the Machine - Native Windows Build Script
 # ==============================================================================
 #
-# This script builds psDoom-ng as a native Windows executable that can
-# enumerate and kill REAL Windows processes.
+# This script builds Fight the Machine as a native Windows executable that can
+# enumerate and kill REAL Windows processes (based on psDoom-ng engine).
 #
 # Prerequisites (run in MSYS2 MINGW64 terminal):
 #   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake \
@@ -195,13 +195,13 @@ echo "Output directory: $BUILD_DIR"
 echo ""
 
 # List built files
-if [[ -f "$BUILD_DIR/psdoom-ng.exe" ]]; then
-    echo -e "${GREEN}Built: psdoom-ng.exe${NC}"
-    ls -lh "$BUILD_DIR/psdoom-ng.exe"
+if [[ -f "$BUILD_DIR/fightthemachine.exe" ]]; then
+    echo -e "${GREEN}Built: fightthemachine.exe${NC}"
+    ls -lh "$BUILD_DIR/fightthemachine.exe"
     echo ""
     echo "To run:"
     echo "  cd $BUILD_DIR"
-    echo "  ./psdoom-ng.exe -iwad DOOM.WAD -file psdoom1.wad"
+    echo "  ./fightthemachine.exe -iwad DOOM.WAD"
     echo ""
     if [[ "$SAFE_MODE" == "ON" ]]; then
         echo -e "${YELLOW}NOTE: Safe mode is ENABLED - only safe processes can be killed.${NC}"
