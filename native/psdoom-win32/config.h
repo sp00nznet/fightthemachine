@@ -10,6 +10,7 @@
 #define PACKAGE_TARNAME "psdoom-ng"
 #define PACKAGE_VERSION "0.4.0"
 #define VERSION "0.4.0"
+#define PROGRAM_PREFIX ""
 
 /* Windows platform */
 #define _WIN32 1
