@@ -1,15 +1,16 @@
-/* config.h - Generated for MinGW/GCC Windows builds */
+/* config.h - Fight the Machine - MinGW/GCC Windows build config */
+/* Based on psDoom-ng by Orson Teodoro (https://github.com/orsonteodoro/psdoom-ng) */
 
 #ifndef CONFIG_H
 #define CONFIG_H
 
 /* Package information */
-#define PACKAGE "psdoom-ng"
-#define PACKAGE_NAME "psDoom-ng"
-#define PACKAGE_STRING "psDoom-ng 0.4.0"
-#define PACKAGE_TARNAME "psdoom-ng"
-#define PACKAGE_VERSION "0.4.0"
-#define VERSION "0.4.0"
+#define PACKAGE "fightthemachine"
+#define PACKAGE_NAME "Fight the Machine"
+#define PACKAGE_STRING "Fight the Machine 1.0.0"
+#define PACKAGE_TARNAME "fightthemachine"
+#define PACKAGE_VERSION "1.0.0"
+#define VERSION "1.0.0"
 #define PROGRAM_PREFIX ""
 
 /* Windows platform */

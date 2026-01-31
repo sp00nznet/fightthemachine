@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 echo ============================================
-echo  Fight the Machine - Native Windows Port
+echo  Fight the Machine - Native Windows Build
 echo ============================================
 echo.
 echo WARNING: This will kill REAL Windows processes!
@@ -13,8 +13,8 @@ set SCALE=2
 set WINDOWED=1
 set SAFE_MODE=1
 
-if exist psdoom.cfg (
-    for /f "tokens=1,2 delims==" %%a in ('type psdoom.cfg ^| findstr /v "^#" ^| findstr "="') do (
+if exist fightthemachine.cfg (
+    for /f "tokens=1,2 delims==" %%a in ('type fightthemachine.cfg ^| findstr /v "^#" ^| findstr "="') do (
         set %%a=%%b
     )
 )
@@ -33,7 +33,7 @@ if "%SCALE%"=="6" set ARGS=%ARGS% -6
 if "%WINDOWED%"=="1" set ARGS=%ARGS% -window
 
 :: Display settings
-echo Current settings (edit psdoom.cfg to change):
+echo Current settings (edit fightthemachine.cfg to change):
 echo   Scale: %SCALE%x
 echo   Windowed: %WINDOWED%
 echo   Safe Mode: %SAFE_MODE%
@@ -42,4 +42,4 @@ echo Press any key to start, or Ctrl+C to cancel...
 pause > nul
 
 :: Launch the game
-psdoom-ng.exe %ARGS%
+fightthemachine.exe %ARGS%
