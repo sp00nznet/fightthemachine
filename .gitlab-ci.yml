@@ -8,7 +8,7 @@ stages:
 
 variables:
   WIN32_ARTIFACT_NAME: fightthemachine-win32
-  QEMU_VERSION: "8.2.0"
+  QEMU_VERSION: "20251224"  # Date-based version (QEMU 10.2.0)
   GIT_LFS_SKIP_SMUDGE: "1"
   GIT_DEPTH: "50"
 
