@@ -1,63 +1,19 @@
 # GitLab CI/CD Pipeline for Fight the Machine
-# Builds Docker image, QEMU VM, Win32 clients (Docker and QEMU), and Native Windows port
+# Builds QEMU VM and Native Windows port
 
 stages:
   - build
-  - test
   - package
   - deploy
 
 variables:
-  DOCKER_IMAGE: $CI_REGISTRY_IMAGE
-  DOCKER_TAG: $CI_COMMIT_SHORT_SHA
   WIN32_ARTIFACT_NAME: fightthemachine-win32
   QEMU_VERSION: "8.2.0"
   GIT_LFS_SKIP_SMUDGE: "1"
   GIT_DEPTH: "50"
 
 # =============================================================================
-# Docker Image Build (Linux runner with Docker - uses host Docker, not dind)
-# =============================================================================
-
-build:docker:
-  stage: build
-  tags:
-    - linux
-    - debian
-  variables:
-    DOCKER_BUILDKIT: "1"
-  before_script:
-    # Point Docker storage to /mnt/scratch (900GB) - don't copy, just recreate
-    - |
-      if [ ! -L /var/lib/docker ] && [ -d /mnt/scratch ]; then
-        echo "Pointing Docker storage to /mnt/scratch..."
-        sudo systemctl stop docker.socket docker || true
-        sudo rm -rf /var/lib/docker
-        sudo mkdir -p /mnt/scratch/docker
-        sudo ln -s /mnt/scratch/docker /var/lib/docker
-        sudo systemctl start docker.socket docker || true
-      fi
-    - sudo mkdir -p /mnt/scratch/buildx && sudo rm -rf /root/.docker/buildx && sudo ln -sf /mnt/scratch/buildx /root/.docker/buildx || true
-    # Clean up old caches
-    - sudo docker system prune -af --volumes || true
-    - sudo docker builder prune -af || true
-    # Login to registries
-    - sudo docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN || true
-    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - sudo docker build --no-cache -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest . || docker build --no-cache -t $DOCKER_IMAGE:$DOCKER_TAG -t $DOCKER_IMAGE:latest .
-    - sudo docker push $DOCKER_IMAGE:$DOCKER_TAG || docker push $DOCKER_IMAGE:$DOCKER_TAG
-    - sudo docker push $DOCKER_IMAGE:latest || docker push $DOCKER_IMAGE:latest
-  after_script:
-    # Clean up after build (including BuildKit cache)
-    - sudo docker builder prune -af || docker builder prune -af || true
-    - sudo docker system prune -af || docker system prune -af || true
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# =============================================================================
-# QEMU VM Image Build (Linux runner with Docker and QEMU tools)
+# QEMU VM Image Build (Linux runner with QEMU tools)
 # =============================================================================
 
 build:qemu-vm:
@@ -85,73 +41,7 @@ build:qemu-vm:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
-# Win32 Native Client Build - Docker Mode (Windows runner)
-# =============================================================================
-
-build:win32:
-  stage: build
-  tags:
-    - windows
-    - shell
-  variables:
-    CMAKE_BUILD_TYPE: Release
-  cache:
-    key: win32-${CI_COMMIT_REF_SLUG}
-    paths:
-      - win32/build/_deps/
-  before_script:
-    # Find and add CMake to PATH
-    - |
-      $cmakePaths = @(
-        "C:\Program Files\CMake\bin",
-        "C:\Program Files (x86)\CMake\bin",
-        "${env:ProgramFiles}\CMake\bin",
-        "${env:ProgramFiles(x86)}\CMake\bin"
-      )
-      foreach ($p in $cmakePaths) {
-        if (Test-Path "$p\cmake.exe") {
-          $env:PATH = "$p;$env:PATH"
-          Write-Host "Found CMake at: $p"
-          break
-        }
-      }
-    # Try to load Visual Studio environment
-    - |
-      try {
-        $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath 2>$null
-        if ($vsPath) {
-          Import-Module (Join-Path $vsPath "Common7\Tools\Microsoft.VisualStudio.DevShell.dll")
-          Enter-VsDevShell -VsInstallPath $vsPath -SkipAutomaticLocation -DevCmdArguments "-arch=amd64"
-          Write-Host "Visual Studio environment loaded from: $vsPath"
-        }
-      } catch {
-        Write-Host "Visual Studio DevShell not loaded, continuing anyway..."
-      }
-    # Verify cmake is available
-    - cmake --version
-  script:
-    - Set-Location "$env:CI_PROJECT_DIR\win32"
-    - |
-      if (-not (Test-Path build)) {
-        New-Item -ItemType Directory -Path build | Out-Null
-      }
-    - Set-Location build
-    - cmake -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE="$env:CMAKE_BUILD_TYPE" -DUSE_DOCKER=ON -DUSE_QEMU=OFF ..
-    - cmake --build . --config "$env:CMAKE_BUILD_TYPE" --parallel
-    - cpack -C "$env:CMAKE_BUILD_TYPE" -G ZIP
-  artifacts:
-    name: "$WIN32_ARTIFACT_NAME-docker-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - win32/build/Release/fightthemachine.exe
-      - win32/build/Release/WebView2Loader.dll
-      - win32/build/*.zip
-    expire_in: 30 days
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-
-# =============================================================================
-# Win32 Native Client Build - QEMU Mode (Windows runner)
+# Win32 QEMU Launcher Build (Windows runner)
 # =============================================================================
 
 build:win32-qemu:
@@ -251,6 +141,7 @@ build:win32-qemu:
     expire_in: 30 days
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
 
 # =============================================================================
 # Native Windows Port Build - Process Library (Windows runner with MSYS2)
@@ -414,45 +305,6 @@ build:windows-native:
   allow_failure: true  # MSYS2 and SDL may not be installed on all runners
 
 # =============================================================================
-# Tests (Linux runner with Docker - uses host Docker)
-# =============================================================================
-
-test:docker:
-  stage: test
-  tags:
-    - linux
-    - debian
-  # Use shell executor with host Docker daemon
-  before_script:
-    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    # Start the container (use --privileged if needed for sysctl access)
-    - sudo docker run -d --name test-ftm-$CI_JOB_ID -p 6080:6080 --security-opt seccomp=unconfined $DOCKER_IMAGE:$DOCKER_TAG || docker run -d --name test-ftm-$CI_JOB_ID -p 6080:6080 --security-opt seccomp=unconfined $DOCKER_IMAGE:$DOCKER_TAG
-    # Wait for health check
-    - |
-      for i in $(seq 1 60); do
-        status=$(sudo docker inspect --format='{{.State.Health.Status}}' test-ftm-$CI_JOB_ID 2>/dev/null || docker inspect --format='{{.State.Health.Status}}' test-ftm-$CI_JOB_ID 2>/dev/null)
-        if echo "$status" | grep -q healthy; then
-          echo "Container is healthy"
-          break
-        fi
-        echo "Waiting for container to be healthy... ($i/60)"
-        sleep 5
-      done
-    # Check noVNC is responding
-    - curl -f http://localhost:6080/ || exit 1
-    - echo "noVNC is responding correctly"
-  after_script:
-    - sudo docker stop test-ftm-$CI_JOB_ID || docker stop test-ftm-$CI_JOB_ID || true
-    - sudo docker rm test-ftm-$CI_JOB_ID || docker rm test-ftm-$CI_JOB_ID || true
-  needs:
-    - build:docker
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-  allow_failure: true  # Runner may have Docker restrictions
-
-# =============================================================================
 # Package Release (Linux runner)
 # =============================================================================
 
@@ -471,23 +323,19 @@ package:release:
 
       This package contains multiple versions of Fight the Machine:
 
-      1. Docker Version (fightthemachine-docker.zip)
-         - Requires Docker Desktop
-         - Runs in a container
-
-      2. QEMU Version (FightTheMachine-QEMU-*.zip)
-         - Portable, no Docker required
+      1. QEMU Version (FightTheMachine-QEMU-*.zip)
+         - Portable, self-contained
          - Includes bundled VM (~150MB)
          - Best with Hyper-V/WHPX enabled
 
-      3. Native Version (fightthemachine-native.zip)
+      2. Native Version (FightTheMachine-Native-*.zip)
          - Kills REAL Windows processes
          - Use with caution!
          - Run process-respawner.exe first
 
       Requirements:
         - Windows 10 or later (64-bit)
-        - Microsoft Edge WebView2 Runtime
+        - Microsoft Edge WebView2 Runtime (QEMU version only)
 
       Controls:
         - Arrow keys: Move
@@ -499,8 +347,6 @@ package:release:
       Source: https://github.com/sp00nznet/fightthemachine
       EOF
     # Copy artifacts from previous jobs
-    - cp win32/build/Release/fightthemachine.exe release/ || true
-    - cp win32/build/Release/WebView2Loader.dll release/ || true
     - cp dist/FightTheMachine-QEMU-*.zip release/ || true
     - cp native/build/*.zip release/ || true
     - cp dist/FightTheMachine-Native-*.zip release/ || true
@@ -510,7 +356,6 @@ package:release:
       - release/
     expire_in: 90 days
   needs:
-    - build:win32
     - job: build:win32-qemu
       optional: true
     - job: build:win32-native-lib
@@ -521,59 +366,32 @@ package:release:
     - if: $CI_COMMIT_BRANCH == "main"
 
 # =============================================================================
-# Deploy Win32 Client to Network Share
+# Deploy to Network Share
 # =============================================================================
 
-deploy:win32:
+deploy:releases:
   stage: deploy
   tags:
     - windows
     - shell
   needs:
-    - job: build:win32
-      artifacts: true
     - job: build:win32-qemu
+      artifacts: true
+      optional: true
+    - job: build:windows-native
       artifacts: true
       optional: true
   script:
     - 'net use R: \\192.168.100.22\releases gitlab /user:root'
     - '$destPath = "R:\$env:CI_PROJECT_NAME\$env:CI_COMMIT_REF_NAME"'
     - 'if (-not (Test-Path $destPath)) { New-Item -ItemType Directory -Path $destPath -Force }'
-    - 'Copy-Item -Path "win32\build\Release\fightthemachine.exe" -Destination $destPath -Force'
-    - 'Copy-Item -Path "win32\build\Release\WebView2Loader.dll" -Destination $destPath -Force'
-    - 'Copy-Item -Path "win32\build\*.zip" -Destination $destPath -Force -ErrorAction SilentlyContinue'
     - 'Copy-Item -Path "dist\FightTheMachine-QEMU-*.zip" -Destination $destPath -Force -ErrorAction SilentlyContinue'
+    - 'Copy-Item -Path "dist\FightTheMachine-Native-*.zip" -Destination $destPath -Force -ErrorAction SilentlyContinue'
     - 'Copy-Item -Path "LICENSE" -Destination $destPath -Force -ErrorAction SilentlyContinue'
     - 'net use R: /delete'
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_COMMIT_BRANCH == "main"
-
-# =============================================================================
-# Deploy to Docker Hub (Linux runner - uses host Docker)
-# =============================================================================
-
-deploy:docker-hub:
-  stage: deploy
-  tags:
-    - linux
-    - debian
-  # Use shell executor with host Docker daemon
-  before_script:
-    - sudo docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY || docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-    - sudo docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN || docker login -u $DOCKERHUB_USER -p $DOCKERHUB_TOKEN
-  script:
-    - sudo docker pull $DOCKER_IMAGE:$DOCKER_TAG || docker pull $DOCKER_IMAGE:$DOCKER_TAG
-    - sudo docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:$DOCKER_TAG || docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:$DOCKER_TAG
-    - sudo docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:latest || docker tag $DOCKER_IMAGE:$DOCKER_TAG sp00nznet/fightthemachine:latest
-    - sudo docker push sp00nznet/fightthemachine:$DOCKER_TAG || docker push sp00nznet/fightthemachine:$DOCKER_TAG
-    - sudo docker push sp00nznet/fightthemachine:latest || docker push sp00nznet/fightthemachine:latest
-  needs:
-    - test:docker
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-      when: manual
-  allow_failure: true
 
 # =============================================================================
 # GitHub Mirror Sync (Linux runner)
