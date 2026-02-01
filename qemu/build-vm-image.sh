@@ -202,10 +202,10 @@ if ! command -v genext2fs &>/dev/null; then
     }
 fi
 
-# Calculate rootfs size and add 50% headroom
+# Calculate rootfs size and add 150% headroom (2.5x total)
 ROOTFS_SIZE_KB=$(du -sk "$ROOTFS_DIR" | cut -f1)
 ROOTFS_SIZE_MB=$((ROOTFS_SIZE_KB / 1024))
-IMAGE_BLOCKS=$(( (ROOTFS_SIZE_KB * 3 / 2) ))  # 1.5x size for headroom
+IMAGE_BLOCKS=$(( (ROOTFS_SIZE_KB * 5 / 2) ))  # 2.5x size for headroom (ext4 metadata + inodes)
 echo "Rootfs size: ${ROOTFS_SIZE_MB}MB, creating image with $((IMAGE_BLOCKS / 1024))MB"
 
 RAW_IMAGE="$WORK_DIR/disk.raw"
