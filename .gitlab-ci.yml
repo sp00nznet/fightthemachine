@@ -87,13 +87,20 @@ build:win32-qemu:
         Write-Host "Visual Studio DevShell not loaded, continuing anyway..."
       }
     - cmake --version
-    # Download QEMU for Windows
+    # Download QEMU for Windows (174MB - use curl for reliable large downloads)
     - |
       $qemuUrl = "https://qemu.weilnetz.de/w64/qemu-w64-setup-$env:QEMU_VERSION.exe"
-      $qemuInstaller = "$env:TEMP\qemu-setup.exe"
-      if (-not (Test-Path $qemuInstaller)) {
-        Write-Host "Downloading QEMU $env:QEMU_VERSION..."
-        Invoke-WebRequest -Uri $qemuUrl -OutFile $qemuInstaller -UseBasicParsing
+      $qemuInstaller = "$env:CI_PROJECT_DIR\qemu-setup.exe"
+      if (-not (Test-Path $qemuInstaller) -or (Get-Item $qemuInstaller).Length -lt 100MB) {
+        Write-Host "Downloading QEMU $env:QEMU_VERSION (174MB)..."
+        Remove-Item $qemuInstaller -ErrorAction SilentlyContinue
+        # Use curl.exe for reliable large file downloads
+        & curl.exe -L -o $qemuInstaller $qemuUrl --progress-bar --retry 3 --retry-delay 5
+        if (-not (Test-Path $qemuInstaller) -or (Get-Item $qemuInstaller).Length -lt 100MB) {
+          Write-Host "ERROR: QEMU download failed or incomplete"
+          exit 1
+        }
+        Write-Host "Download complete: $((Get-Item $qemuInstaller).Length / 1MB) MB"
       }
       # Extract QEMU (use 7-zip if available)
       $qemuDir = "$env:CI_PROJECT_DIR\qemu\qemu-win64"
