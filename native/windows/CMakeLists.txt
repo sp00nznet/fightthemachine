@@ -19,6 +19,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(fightthemachine VERSION 1.0.0 LANGUAGES C)
 
+# Windows resources (icon + version info) - compiled by windres under MinGW
+enable_language(RC)
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -305,7 +308,12 @@ target_compile_definitions(textscreen PRIVATE HAVE_CONFIG_H)
 add_executable(fightthemachine WIN32
     ${COMMON_SOURCES}
     ${DOOM_SOURCES}
+    ${CMAKE_CURRENT_SOURCE_DIR}/app.rc
 )
+# windres doesn't report the .ico as a dependency; without this a new icon
+# needs a clean build to show up.
+set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/app.rc
+    PROPERTIES OBJECT_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/app.ico)
 
 # Include directories
 target_include_directories(fightthemachine PRIVATE
