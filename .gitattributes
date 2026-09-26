@@ -1,0 +1,2 @@
+# bash on the Windows CI runner rejects CRLF scripts
+*.sh text eol=lf
