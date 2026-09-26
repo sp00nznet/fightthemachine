@@ -15,226 +15,163 @@
               ╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═══╝╚══════╝
 ```
 
-**Kill processes by killing DOOM monsters.**
+## What it is
 
----
-
-## What Is This?
-
-Fight the Machine turns your running processes into DOOM monsters. Kill the monster, kill the process. It's that simple.
-
-| Build | What Gets Killed | Features | Safety |
-|-------|------------------|----------|--------|
-| [Native Windows](#native-windows) | Real Windows processes | Direct, fast, no VM | Dangerous |
-| [Win32 QEMU](#win32-qemu-client) | VM processes only | Respawner, File Spawner | Safe |
-
----
-
-## Project Structure
+A DOOM where every monster is one of your running processes. Kill the monster
+and the process dies. It is a Windows port of [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng),
+which is built on Chocolate Doom.
 
 ```
-fightthemachine/
-│
-├── native/                 # Native Windows builds
-│   └── windows/               # Native Windows port (DANGEROUS)
-│       ├── CMakeLists.txt         # CMake build config
-│       ├── pr_process.c           # Windows process API
-│       ├── build-windows.sh       # MSYS2 build script
-│       ├── fightthemachine.cfg    # User config file
-│       ├── run.bat                # Launcher
-│       └── README.md
-│
-├── win32/                  # Win32 QEMU client (SAFE)
-│   ├── main.cpp               # WebView2 GUI wrapper
-│   ├── CMakeLists.txt         # Build config
-│   └── README.md
-│
-├── qemu/                   # QEMU VM build scripts
-│   ├── build-vm-image.sh      # Creates bootable Linux VM
-│   ├── package-windows.ps1    # Windows packaging script
-│   └── vm-init.sh             # VM initialization
-│
-├── wad/                    # DOOM level data
-│   ├── psdoom1.wad            # Process spawn levels
-│   ├── psdoom2.wad
-│   └── xdoom.wad
-│
-├── patches/                # Source patches
-│   └── add-sudo-cheat.sh      # Adds 'sudo' cheat code
-│
-└── archive/                # Legacy/historical files
+  ╔═════════════════════════════════╗    ╔═════════════════════════════════╗
+  ║ NATIVE WINDOWS  -  real kills   ║    ║ WIN32 + QEMU  -  sandboxed      ║
+  ╠═════════════════════════════════╣    ╠═════════════════════════════════╣
+  ║                                 ║    ║                                 ║
+  ║ fightthemachine.exe             ║    ║ fightthemachine.exe (WebView2)  ║
+  ║   │                             ║    ║           │                     ║
+  ║   ├──▶ Toolhelp32 snapshot      ║    ║           ▼                     ║
+  ║   │      every process = monster║    ║ ┌──────── QEMU VM ────────┐     ║
+  ║   │                             ║    ║ │ Linux + psDoom-ng       │     ║
+  ║   └──▶ TerminateProcess         ║    ║ │ monster dies ─▶ kill -9 │     ║
+  ║          on monster death       ║    ║ │ respawner revives it    │     ║
+  ║                                 ║    ║ └─────────────────────────┘     ║
+  ║ protected: explorer, csrss ...  ║    ║                                 ║
+  ║ safe mode: notepad, calc, paint ║    ║ your Windows is untouched       ║
+  ╚═════════════════════════════════╝    ╚═════════════════════════════════╝
 ```
 
----
+How the pieces fit: [docs/architecture.md](docs/architecture.md).
 
-## Native Windows
+## Status
 
-**DANGEROUS** - Kills real Windows processes using `TerminateProcess` API.
+**v1.0.0, alpha.** No tagged release yet.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      WINDOWS DESKTOP                              │
-│                                                                   │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │                   fightthemachine.exe                       │  │
-│  │                      (SDL 1.2)                              │  │
-│  └───────────────────────────┬────────────────────────────────┘  │
-│                              │                                    │
-│              ┌───────────────┼───────────────┐                    │
-│              │               │               │                    │
-│              ▼               ▼               ▼                    │
-│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐         │
-│  │ Toolhelp32    │  │ TerminateProc │  │ Process       │         │
-│  │ Snapshot      │  │ API           │  │ Blacklist     │         │
-│  │               │  │               │  │               │         │
-│  │ Enumerates    │  │ Kills real    │  │ Protects      │         │
-│  │ all running   │  │ Windows       │  │ critical      │         │
-│  │ processes     │  │ processes     │  │ system procs  │         │
-│  └───────────────┘  └───────────────┘  └───────────────┘         │
-│                                                                   │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │                    RUNNING PROCESSES                        │  │
-│  │                                                             │  │
-│  │  notepad.exe    chrome.exe    discord.exe    spotify.exe   │  │
-│  │   (zombie)       (demon)       (demon)      (cacodemon)    │  │
-│  │                                                             │  │
-│  │  explorer.exe   svchost.exe   csrss.exe     lsass.exe     │  │
-│  │  (PROTECTED)    (PROTECTED)   (PROTECTED)   (PROTECTED)    │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│  NO RESPAWNER - killed processes stay dead!                      │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
-```
+| Build | State |
+|---|---|
+| Native Windows | Usable. Builds under MSYS2 and runs on shareware `doom1.wad`, Ultimate DOOM, DOOM II and Freedoom (all checked 2026-09-26). |
+| Win32 + QEMU | Untested since its CI was retired. The build scripts are in the repo, but nobody has checked them lately. |
 
-### Quick Start
+There is no CI right now. GitHub Actions is on the [roadmap](ROADMAP.md).
 
-1. Download the release ZIP
-2. Extract and run `run.bat`
-3. Kill monsters = Kill real processes
+## Screenshots
 
-See [native/windows/README.md](native/windows/README.md) for build instructions.
+The psDoom arena on the shareware `doom1.wad`. Each monster is labelled with its PID and process name:
 
----
+![psDoom arena on shareware DOOM](docs/screenshots/psdoom-arena-shareware.png)
 
-## Win32 QEMU Client
+## Getting Started
 
-**Safe** - Runs psDoom in a Linux virtual machine. Processes die inside the VM only.
+For the native Windows build. It kills **real** processes, and safe mode is on by default.
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                      WINDOWS HOST                                 │
-│                                                                   │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │                  fightthemachine.exe                        │  │
-│  │                  (Win32 GUI + WebView2)                     │  │
-│  └───────────────────────────┬────────────────────────────────┘  │
-│                              │                                    │
-│                              ▼                                    │
-│  ┌────────────────────────────────────────────────────────────┐  │
-│  │                      QEMU VM                                │  │
-│  │                                                             │  │
-│  │  ┌──────────────────────────────────────────────────────┐  │  │
-│  │  │                  Linux Guest                          │  │  │
-│  │  │                                                       │  │  │
-│  │  │   ┌─────────────┐    ┌─────────────────────────────┐ │  │  │
-│  │  │   │ psDoom-ng   │───▶│    Process Respawner        │ │  │  │
-│  │  │   │             │    │                             │ │  │  │
-│  │  │   │  Kill       │    │  ┌─────┐ ┌─────┐ ┌─────┐   │ │  │  │
-│  │  │   │  Monster ───────▶│  │ cat │ │ vim │ │ top │   │ │  │  │
-│  │  │   │             │    │  └─────┘ └─────┘ └─────┘   │ │  │  │
-│  │  │   └─────────────┘    │                             │ │  │  │
-│  │  │                      │  Process dies, respawns     │ │  │  │
-│  │  │                      └─────────────────────────────┘ │  │  │
-│  │  │                                                       │  │  │
-│  │  │   File Spawner creates new processes dynamically     │  │  │
-│  │  │                                                       │  │  │
-│  │  └──────────────────────────────────────────────────────┘  │  │
-│  │                                                             │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                   │
-│  Your Windows processes are completely safe!                     │
-│                                                                   │
-└──────────────────────────────────────────────────────────────────┘
+1. Download `FightTheMachine-Native-<version>.zip` from the
+   [Releases](https://github.com/sp00nznet/fightthemachine/releases) page. Until the
+   first release, build it yourself (see [Building from source](#building-from-source)).
+2. Extract it anywhere. It contains the game, its DLLs, the psDoom levels, and
+   the shareware `doom1.wad`, so nothing else needs installing.
+3. Double-click `run.bat`. It prints your settings and waits for a key:
+   ```
+   Current settings (edit fightthemachine.cfg to change):
+     Scale: 2x
+     Windowed: 1
+     Safe Mode: 1
+   ```
+4. Press a key. The game opens in a 640x400 window at the title screen. Start a
+   new game and you spawn in the psDoom arena, surrounded by a shotgun guy or
+   demon for every process.
+
+**Have the full game?** Put `doom.wad` (Ultimate DOOM) or `doom2.wad` (DOOM II)
+beside `fightthemachine.exe`. The engine picks the best IWAD in the folder in
+this order: `doom2.wad`, `doom.wad`, `doom1.wad`. Freedoom works too, but because
+the shipped `doom1.wad` outranks it, pass `-iwad freedoom1.wad`. Final DOOM
+(`plutonia.wad`, `tnt.wad`) runs, but psDoom spawns no process monsters in it.
+
+## Usage
+
+```bat
+:: what run.bat does with the default config
+fightthemachine.exe -2 -window
+
+:: pick an IWAD explicitly
+fightthemachine.exe -iwad doom2.wad -window
+
+:: jump straight into the arena
+fightthemachine.exe -warp 1 1 -window
+
+:: monsters but no killing (dry run)
+fightthemachine.exe -nopsact -window
+
+:: lift safe mode - any process that isn't protected can die
+fightthemachine.exe -unsafe -window
 ```
 
-Features:
-- **Process Respawner** - killed processes respawn after a delay based on enemy tier
-- **File Spawner** - creates processes dynamically for the game
-- Native Windows GUI wrapper with WebView2
+`fightthemachine.cfg` drives `run.bat`:
 
-See [win32/README.md](win32/README.md) for build instructions and [qemu/](qemu/) for VM build scripts.
+| Key | Values | Effect |
+|---|---|---|
+| `SCALE` | `2`–`6` | Window size, 2 = 640x400 |
+| `WINDOWED` | `1` / `0` | Window or fullscreen |
+| `SAFE_MODE` | `1` / `0` | `0` passes `-unsafe` |
 
----
+### Who dies
 
-## Controls
+| Mode | Can be killed |
+|---|---|
+| Safe (default) | `notepad.exe`, `calc.exe`, `calculatorapp.exe`, `mspaint.exe` |
+| `-unsafe` | Anything not protected |
+| Never | `system`, `csrss.exe`, `lsass.exe`, `svchost.exe`, `winlogon.exe`, `explorer.exe`, `dwm.exe`, Defender, the game itself, and `claude.exe` (it helped build this) |
 
-| Key | Action |
-|-----|--------|
-| `↑` `↓` `←` `→` | Move |
-| `Ctrl` | Fire |
-| `Space` | Use / Open doors |
-| `1-7` | Select weapon |
-| `Tab` | Automap |
-| `Esc` | Menu |
+The full protected list is `WIN32_BLACKLIST` in [native/windows/pr_process.c](native/windows/pr_process.c).
+System and service processes appear as **demons**. Everything else appears as a
+**shotgun guy**.
 
-## Cheat Codes
+### Controls and cheats
 
-| Cheat | Effect |
-|-------|--------|
-| `sudo` | God mode + all weapons (Fight the Machine exclusive) |
-| `iddqd` | God mode |
-| `idkfa` | All weapons and ammo |
-| `idclip` | Walk through walls |
+| Key | Action | | Cheat | Effect |
+|---|---|---|---|---|
+| Arrows | Move | | `sudo` | God mode + all weapons (this project's own) |
+| `Ctrl` | Fire | | `iddqd` | God mode |
+| `Space` | Use / open | | `idkfa` | All weapons and ammo |
+| `1`–`7` | Weapon | | `idclip` | No clipping |
+| `Tab` | Automap | | | |
 
----
+## Building from source
 
-## Process → Monster Mapping
+Native Windows, from a clean machine:
 
-| Monster | Health | Process Type | Examples |
-|---------|--------|--------------|----------|
-| Zombieman | Low | Trivial | `notepad`, `calc`, `mspaint` |
-| Imp | Medium | Dev tools | `code`, `node`, `python` |
-| Demon | High | Apps | `chrome`, `firefox`, `discord` |
-| Cacodemon | Higher | Services | `dropbox`, `steam`, `spotify` |
-| Baron of Hell | Boss | Office | `outlook`, `excel`, `winword` |
-| Cyberdemon | Invincible | PROTECTED | `explorer`, `svchost`, `csrss`, `claude` |
+1. Install [MSYS2](https://www.msys2.org/) to `C:\msys64`.
+2. In the **MSYS2 MINGW64** shell:
+   ```bash
+   pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake \
+             mingw-w64-x86_64-SDL mingw-w64-x86_64-SDL_mixer \
+             mingw-w64-x86_64-SDL_net mingw-w64-x86_64-libpng git make
+   ```
+3. Build. The first run clones psDoom-ng into `psdoom-ng-src/` and patches it:
+   ```bash
+   cd native/windows
+   ./build-windows.sh          # --unsafe compiles safe mode out entirely
+   ```
+   Output: `native/windows/build/fightthemachine.exe`.
+4. To build the release ZIP, run this from PowerShell. It downloads `doom1.wad`
+   and checks its md5:
+   ```powershell
+   .\native\windows\package.ps1            # or -SkipBuild to reuse build/
+   ```
+   Output: `dist/FightTheMachine-Native-<describe>.zip`.
 
----
+Win32 + QEMU: see [win32/README.md](win32/README.md) and [qemu/](qemu/).
 
-## Credits & Acknowledgments
-
-**This project stands on the shoulders of giants.**
-
-Fight the Machine is built entirely on open source software. We don't own any of the underlying technology - we're just building on the amazing work of others:
-
-| Project | Author | What It Is |
-|---------|--------|------------|
-| [DOOM](https://github.com/id-Software/DOOM) | id Software (1993) | The legendary game that started it all |
-| [Chocolate Doom](https://www.chocolate-doom.org/) | Simon Howard | Faithful cross-platform DOOM source port |
-| [psDoom](http://psdoom.sourceforge.net/) | Dennis Chao (1999) | The original "kill processes in DOOM" concept |
-| [psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) | Orson Teodoro | Modern psDoom port based on Chocolate Doom |
-| [psDoom-ng fork](https://github.com/keymon/psdoom-ng) | keymon | Additional psDoom-ng development |
-
-**All of this is free and open source software under the GPL v2 license.**
-
-We encourage you to explore these projects, contribute to them, and build your own cool stuff!
-
----
+Why the level WADs are patched, and the crash that forced it:
+[docs/iwads.md](docs/iwads.md).
 
 ## License
 
-This project is licensed under **GPL v2** - the same license as DOOM, Chocolate Doom, and psDoom-ng.
+GPL v2 for the engine and psDoom level data. The shareware `doom1.wad` in the
+release ZIP is id Software's, freely distributable as shareware. It is never
+committed to this repo. Details in [LICENSE](LICENSE) and [PROVENANCE.md](PROVENANCE.md).
 
-**This is free software.** You are free to use, modify, and distribute it under the terms of the GPL v2.
-
----
-
-## Repositories
-
-- **GitHub:** https://github.com/sp00nznet/fightthemachine
-- **GitLab:** https://(removed)/sp00nz/fightthemachine
-
----
+Built on [DOOM](https://github.com/id-Software/DOOM) (id Software),
+[Chocolate Doom](https://www.chocolate-doom.org/) (Simon Howard),
+[psDoom](http://psdoom.sourceforge.net/) (Dennis Chao),
+[psDoom-ng](https://github.com/orsonteodoro/psdoom-ng) (Orson Teodoro) and
+[keymon's fork](https://github.com/keymon/psdoom-ng).
 
 <p align="center"><i>RIP AND TEAR, UNTIL IT IS DONE.</i></p>

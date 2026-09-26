@@ -18,18 +18,29 @@ This project consists of multiple components with different licenses:
    Based on Chocolate Doom, which is also GPL-2.0 licensed.
    See: https://www.chocolate-doom.org/
 
-3. DOOM SHAREWARE WAD
-   License: Shareware (id Software)
+3. DOOM SHAREWARE IWAD (doom1.wad) - release ZIP only, never in this repo
+   License: Shareware, (c) id Software
 
-   The DOOM shareware WAD file is freely distributable but remains
-   the property of id Software. Commercial use requires a license
-   from id Software / ZeniMax Media / Microsoft.
+   The release ZIP bundles the unmodified shareware doom1.wad (v1.9). It is
+   freely distributable as shareware but remains the property of id
+   Software; commercial use requires a licence from its owners. The game
+   also runs on retail doom.wad / doom2.wad and on Freedoom - drop the file
+   beside fightthemachine.exe.
 
-4. NOVNC
+4. PSDOOM LEVEL DATA (psdoom1.wad, psdoom2.wad)
+   License: GPL-2.0, as distributed with psDoom
+   Source: http://psdoom.sourceforge.net/
+
+   Modified for this project: the TEXTURE1/TEXTURE2/PNAMES lumps were
+   removed so the levels render against any IWAD, and psdoom1.wad's few
+   registered-only textures and weapons were swapped for shareware ones.
+   See patches/portable-psdoom-wad.py.
+
+5. NOVNC (QEMU build only)
    License: MPL-2.0 (Mozilla Public License 2.0)
    Repository: https://github.com/novnc/noVNC
 
-5. X11VNC
+6. X11VNC (QEMU build only)
    License: GPL-2.0
 
 For the full text of the GPL-2.0 license, see:

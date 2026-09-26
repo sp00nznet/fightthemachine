@@ -21,9 +21,12 @@
 
 ## Quick Start
 
-1. Extract the ZIP file
+1. Extract the ZIP file. It includes the shareware `doom1.wad`.
 2. Run `run.bat`
 3. Kill monsters = Kill processes
+
+Own DOOM or DOOM II? Drop `doom.wad` / `doom2.wad` next to the exe and it gets
+used instead. Details: [../../docs/iwads.md](../../docs/iwads.md).
 
 ---
 
@@ -48,10 +51,12 @@ SAFE_MODE=1
 
 **Enabled by default.** Only these processes can be killed:
 - `notepad.exe`
-- `calc.exe`
+- `calc.exe` / `calculatorapp.exe`
 - `mspaint.exe`
 
-Disable at your own risk.
+Anything else gets logged as `pr_kill: Safe mode, sparing ...` and left alone.
+Disable it with `SAFE_MODE=0` in the cfg, or by passing `-unsafe`, at your own
+risk. Builds made with `./build-windows.sh --unsafe` have no safe mode at all.
 
 ---
 
