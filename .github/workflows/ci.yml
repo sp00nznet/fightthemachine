@@ -17,7 +17,7 @@ jobs:
   native-windows:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # package.ps1 names the ZIP from `git describe --tags`
 
@@ -47,7 +47,7 @@ jobs:
         shell: powershell
         run: .\native\windows\package.ps1 -SkipBuild -Msys2Root "${{ steps.msys2.outputs.msys2-location }}"
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: FightTheMachine-Native
           path: dist/*.zip
