@@ -19,6 +19,7 @@
 #include "info.h"
 #include "doomdef.h"
 #include "pr_process.h"
+#include "m_argv.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 /* Prevent Windows from redefining boolean - it's already defined by Doom */
@@ -125,15 +126,28 @@ static const char* WIN32_BLACKLIST[] = {
     NULL
 };
 
-/* Check if a process name is in the Windows blacklist */
-static int win32_is_blacklisted(const char *name) {
+/* Safe mode (the default build): only these can die. -unsafe lifts it. */
+static const char* WIN32_SAFE_LIST[] = {
+    "notepad.exe", "calc.exe", "calculatorapp.exe", "mspaint.exe", NULL
+};
+
+#ifndef PSDOOM_SAFE_MODE_DEFAULT
+#define PSDOOM_SAFE_MODE_DEFAULT 1
+#endif
+
+static int win32_in_list(const char **list, const char *name) {
     int i;
-    for (i = 0; WIN32_BLACKLIST[i] != NULL; i++) {
-        if (_stricmp(name, WIN32_BLACKLIST[i]) == 0) {
+    for (i = 0; list[i] != NULL; i++) {
+        if (_stricmp(name, list[i]) == 0) {
             return 1;
         }
     }
     return 0;
+}
+
+/* Check if a process name is in the Windows blacklist */
+static int win32_is_blacklisted(const char *name) {
+    return win32_in_list(WIN32_BLACKLIST, name);
 }
 
 /* Get username for a process */
@@ -1054,6 +1068,15 @@ void pr_kill(int pid) {
   // Check blacklist
   if (win32_is_blacklisted(procname)) {
       fprintf(stderr, "pr_kill: Refusing to kill protected process '%s' (PID %d)\n",
+              procname, pid);
+      return;
+  }
+
+  // Safe mode: refuse anything off the safe list. Checked here, on the one
+  // path that actually terminates, so no caller can bypass it.
+  if (PSDOOM_SAFE_MODE_DEFAULT && !M_CheckParm("-unsafe")
+      && !win32_in_list(WIN32_SAFE_LIST, procname)) {
+      fprintf(stderr, "pr_kill: Safe mode, sparing '%s' (PID %d); run with -unsafe to kill it\n",
               procname, pid);
       return;
   }
