@@ -20,7 +20,8 @@ if exist fightthemachine.cfg (
 )
 
 :: Build command line arguments
-set ARGS=-iwad DOOM1.WAD
+:: No -iwad: the engine picks up doom2.wad, doom.wad or doom1.wad beside the exe.
+set ARGS=
 
 :: Add scale factor
 if "%SCALE%"=="2" set ARGS=%ARGS% -2
@@ -31,6 +32,9 @@ if "%SCALE%"=="6" set ARGS=%ARGS% -6
 
 :: Add windowed mode
 if "%WINDOWED%"=="1" set ARGS=%ARGS% -window
+
+:: Safe mode is on in the exe; only an explicit 0 lifts it
+if "%SAFE_MODE%"=="0" set ARGS=%ARGS% -unsafe
 
 :: Display settings
 echo Current settings (edit fightthemachine.cfg to change):

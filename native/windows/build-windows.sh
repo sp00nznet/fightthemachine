@@ -104,6 +104,17 @@ if ! grep -q "cheat_sudo" "$ST_STUFF" 2>/dev/null; then
     fi
 fi
 
+# Guard against the NULL-WAD crash (missing psdoom1.wad = access violation)
+D_MAIN="$PROJECT_DIR/psdoom-ng-src/trunk/src/doom/d_main.c"
+if [[ -f "$PROJECT_DIR/patches/fix-null-wad-crash.sh" ]]; then
+    bash "$PROJECT_DIR/patches/fix-null-wad-crash.sh" "$D_MAIN"
+fi
+
+# Load the psdoom1.wad arena on shareware too. Upstream skips it there, leaving
+# monsters in E1M1's tiny hidden courtyard where most processes can't spawn.
+# The bundled psdoom1.wad is shareware-safe (patches/portable-psdoom-wad.py).
+sed -i 's/if ( gamemode == registered || gamemode == retail ){/if ( gamemode == shareware || gamemode == registered || gamemode == retail ){/' "$D_MAIN"
+
 # Verify dependencies
 echo "[1/5] Checking dependencies..."
 MISSING_DEPS=0
@@ -201,7 +212,7 @@ if [[ -f "$BUILD_DIR/fightthemachine.exe" ]]; then
     echo ""
     echo "To run:"
     echo "  cd $BUILD_DIR"
-    echo "  ./fightthemachine.exe -iwad DOOM.WAD"
+    echo "  ./fightthemachine.exe   (put doom1.wad, doom.wad or doom2.wad beside it)"
     echo ""
     if [[ "$SAFE_MODE" == "ON" ]]; then
         echo -e "${YELLOW}NOTE: Safe mode is ENABLED - only safe processes can be killed.${NC}"

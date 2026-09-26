@@ -46,12 +46,14 @@ psdoom-ng-src/
 chocolate-doom-*/
 
 # WAD files (downloaded during build)
-DOOM1.WAD
+doom*.wad
+DOOM*.WAD
 freedoom*.wad
 
 # Package outputs
 *.zip
 _CPack_Packages/
+dist/
 
 # Config files (user-specific)
 default.cfg
