@@ -43,14 +43,14 @@ How the pieces fit: [docs/architecture.md](docs/architecture.md).
 
 ## Status
 
-**v1.0.0, alpha.** No tagged release yet.
+**v1.1.0, alpha.** [Latest release](https://github.com/sp00nznet/fightthemachine/releases/latest).
 
 | Build | State |
 |---|---|
 | Native Windows | Usable. Builds under MSYS2 and runs on shareware `doom1.wad`, Ultimate DOOM, DOOM II and Freedoom (all checked 2026-09-26). |
 | Win32 + QEMU | Untested since its CI was retired. The build scripts are in the repo, but nobody has checked them lately. |
 
-There is no CI right now. GitHub Actions is on the [roadmap](ROADMAP.md).
+[![CI](https://github.com/sp00nznet/fightthemachine/actions/workflows/ci.yml/badge.svg)](https://github.com/sp00nznet/fightthemachine/actions/workflows/ci.yml) GitHub Actions builds and packages the native port on every push. Release ZIPs come from CI.
 
 ## Screenshots
 
@@ -63,8 +63,7 @@ The psDoom arena on the shareware `doom1.wad`. Each monster is labelled with its
 For the native Windows build. It kills **real** processes, and safe mode is on by default.
 
 1. Download `FightTheMachine-Native-<version>.zip` from the
-   [Releases](https://github.com/sp00nznet/fightthemachine/releases) page. Until the
-   first release, build it yourself (see [Building from source](#building-from-source)).
+   [Releases](https://github.com/sp00nznet/fightthemachine/releases) page.
 2. Extract it anywhere. It contains the game, its DLLs, the psDoom levels, and
    the shareware `doom1.wad`, so nothing else needs installing.
 3. Double-click `run.bat`. It prints your settings and waits for a key:

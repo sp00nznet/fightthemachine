@@ -2,12 +2,11 @@
 
 ## Next
 
-- **GitHub Actions CI.** On every push and PR: build the native exe under MSYS2
-  and run `patches/portable-psdoom-wad.py --self-check`. On a `v*` tag, run
-  `package.ps1` and attach the ZIP to a GitHub Release.
-- **First tagged release**, `v1.1.0`, once CI produces it.
 - **Re-verify the Win32 + QEMU build.** It hasn't been run since the GitLab CI
-  went away.
+  went away, and it has no GitHub Actions job yet.
+- **Self-host the shareware WAD fetch.** `package.ps1` downloads `doom1.wad`
+  from a third-party GitHub mirror. The md5 pin stops a tampered file, but not
+  the mirror disappearing.
 
 ## Later
 

@@ -7,10 +7,10 @@
 /* Package information */
 #define PACKAGE "fightthemachine"
 #define PACKAGE_NAME "Fight the Machine"
-#define PACKAGE_STRING "Fight the Machine 1.0.0"
+#define PACKAGE_STRING "Fight the Machine 1.1.0"
 #define PACKAGE_TARNAME "fightthemachine"
-#define PACKAGE_VERSION "1.0.0"
-#define VERSION "1.0.0"
+#define PACKAGE_VERSION "1.1.0"
+#define VERSION "1.1.0"
 #define PROGRAM_PREFIX ""
 
 /* Windows platform */

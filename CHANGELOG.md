@@ -4,7 +4,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-26
+
 ### Added
+- GitHub Actions CI (`.github/workflows/ci.yml`). Every push and PR builds, runs the WAD converter self-check and packages the ZIP. A `v*` tag publishes the GitHub Release.
 - Runs on the shareware `doom1.wad`, with the psDoom arena loaded instead of E1M1's cramped courtyard.
 - `native/windows/package.ps1` builds the release ZIP. It bundles the shareware `doom1.wad` (md5-pinned) and pulls in DLLs by walking the import table.
 - `-unsafe` command-line flag. `SAFE_MODE=0` in `fightthemachine.cfg` passes it.
@@ -12,6 +15,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [Sem
 - `docs/architecture.md`, `docs/iwads.md`, `ROADMAP.md`, `PROVENANCE.md`, `CONTRIBUTING.md`.
 
 ### Changed
+- `build-windows.sh` pins psDoom-ng to commit `0aea736` and fails if the shareware patch doesn't apply.
 - `run.bat` no longer hard-codes an IWAD. The engine auto-detects `doom2.wad` / `doom.wad` / `doom1.wad` beside the exe.
 - `psdoom1.wad` / `psdoom2.wad` no longer carry texture directories, and `psdoom1.wad` uses only shareware textures and weapons (`patches/portable-psdoom-wad.py`).
 - README restructured: status, screenshot, getting started, real usage.

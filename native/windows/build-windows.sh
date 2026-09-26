@@ -30,6 +30,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 BUILD_DIR="$SCRIPT_DIR/build"
 PSDOOM_SRC_DIR="$PROJECT_DIR/psdoom-ng-src/trunk/src"
+PSDOOM_NG_COMMIT=0aea736ead0f003eca9077b15288f9e0779eebe6
 
 # Default options
 CLEAN=0
@@ -92,7 +93,10 @@ fi
 if [[ ! -d "$PSDOOM_SRC_DIR" ]]; then
     echo -e "${YELLOW}psdoom-ng source not found. Cloning...${NC}"
     cd "$PROJECT_DIR"
-    git clone --depth 1 https://github.com/orsonteodoro/psdoom-ng.git psdoom-ng-src
+    # Pinned: the sed patches below match upstream text exactly, so a moving
+    # HEAD could silently stop applying them.
+    git clone https://github.com/orsonteodoro/psdoom-ng.git psdoom-ng-src
+    git -C psdoom-ng-src checkout -q "$PSDOOM_NG_COMMIT"
 fi
 
 # Apply the sudo cheat patch if not already applied
@@ -114,6 +118,7 @@ fi
 # monsters in E1M1's tiny hidden courtyard where most processes can't spawn.
 # The bundled psdoom1.wad is shareware-safe (patches/portable-psdoom-wad.py).
 sed -i 's/if ( gamemode == registered || gamemode == retail ){/if ( gamemode == shareware || gamemode == registered || gamemode == retail ){/' "$D_MAIN"
+grep -q "gamemode == shareware || gamemode == registered || gamemode == retail" "$D_MAIN" || { echo -e "${RED}Shareware level patch did not apply to $D_MAIN${NC}"; exit 1; }
 
 # Verify dependencies
 echo "[1/5] Checking dependencies..."
